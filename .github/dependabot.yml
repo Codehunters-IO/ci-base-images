@@ -1,0 +1,20 @@
+version: 2
+updates:
+  - package-ecosystem: "docker"
+    directories:
+      - "/images/jdk"
+      - "/images/graalvm"
+      - "/images/krakend"
+    schedule:
+      interval: "weekly"
+    labels:
+      - "dependencies"
+      - "docker"
+
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    labels:
+      - "dependencies"
+      - "github-actions"

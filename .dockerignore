@@ -1,0 +1,12 @@
+.git
+.github
+.gitignore
+.dockerignore
+README.md
+CHANGELOG.md
+LICENSE.md
+SECURITY.md
+*.md
+.idea
+.vscode
+.DS_Store

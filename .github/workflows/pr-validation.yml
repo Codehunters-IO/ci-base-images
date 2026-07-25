@@ -1,0 +1,99 @@
+name: PR Validation
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'images/**'
+      - 'scripts/**'
+      - '.github/workflows/**'
+
+permissions:
+  contents: read
+
+jobs:
+  hadolint:
+    name: Dockerfile Lint (${{ matrix.variant }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - variant: jdk
+            dockerfile: images/jdk/Dockerfile
+          - variant: graalvm
+            dockerfile: images/graalvm/Dockerfile
+          - variant: krakend
+            dockerfile: images/krakend/Dockerfile
+    steps:
+      - uses: actions/checkout@v5
+      - name: Hadolint
+        uses: hadolint/hadolint-action@v3.1.0
+        with:
+          dockerfile: ${{ matrix.dockerfile }}
+          failure-threshold: warning
+          ignore: DL3008,DL3018,DL3041
+
+  shellcheck:
+    name: Shell Script Lint
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v5
+      - name: ShellCheck
+        uses: ludeeus/action-shellcheck@2.0.0
+        with:
+          scandir: ./scripts
+          severity: warning
+
+  build-test:
+    name: Build & Smoke Test (${{ matrix.variant }}, amd64)
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - variant: jdk
+            context_dir: images/jdk
+            cache_scope: jdk-pr-amd64
+          - variant: graalvm
+            context_dir: images/graalvm
+            cache_scope: graalvm-pr-amd64
+          - variant: krakend
+            context_dir: images/krakend
+            cache_scope: krakend-pr-amd64
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build amd64 image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ${{ matrix.context_dir }}/Dockerfile
+          platforms: linux/amd64
+          push: false
+          load: true
+          tags: ci-base-images:pr-${{ matrix.variant }}-${{ github.event.pull_request.number }}
+          cache-from: type=gha,scope=${{ matrix.cache_scope }}
+          cache-to: type=gha,scope=${{ matrix.cache_scope }},mode=max
+
+      - name: Smoke test
+        run: |
+          docker run --rm \
+            -e CI_VARIANT=${{ matrix.variant }} \
+            ci-base-images:pr-${{ matrix.variant }}-${{ github.event.pull_request.number }} \
+            /usr/local/bin/smoke-test.sh
+
+      - name: Report image size
+        run: |
+          SIZE=$(docker image inspect ci-base-images:pr-${{ matrix.variant }}-${{ github.event.pull_request.number }} \
+            --format '{{.Size}}')
+          SIZE_MB=$((SIZE / 1024 / 1024))
+          echo "### Image Size — ${{ matrix.variant }} (amd64, uncompressed)" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**${SIZE_MB} MB**" >> $GITHUB_STEP_SUMMARY
