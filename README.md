@@ -1,21 +1,23 @@
 # ci-base-images
 
-Pre-baked CI base images for `codehunters-ms-*` Java microservice pipelines. Replaces
-per-run installs (`setup-java`, `setup-gradle`, `apt-get install wireguard`,
+Pre-baked CI base images for `codehunters-ms-*` Java microservice and
+`codehunters/tickets` contract pipelines. Replaces per-run installs
+(`setup-java`, `setup-gradle`, `setup-node`, `apt-get install wireguard`,
 AWS CLI download) with a single `container:` directive in GitHub Actions.
 
-Three variants are published to `ghcr.io/codehunters/ci-base-images`:
+Four variants are published to `ghcr.io/codehunters/ci-base-images`:
 
 | Variant     | Tag suffix    | Base image                              | libc  | Approx size | Use case                                  |
 |-------------|---------------|-----------------------------------------|-------|-------------|-------------------------------------------|
 | **JDK**     | _(none)_      | `eclipse-temurin:21-jdk-alpine`         | musl  | ~450 MB     | `codehunters-ms-*` build/test/deploy (default)  |
 | **GraalVM** | `-graalvm`    | `ghcr.io/graalvm/jdk-community:21`      | glibc | ~1.1 GB     | `nativeCompile` / `native-image` jobs     |
 | **KrakenD** | `-krakend`    | `alpine:3.21` + `krakend` + `golang`    | musl  | ~700 MB     | `codehunters-gw-krakend` gateway pipelines      |
+| **Node**    | `-node`       | `node:20.20.2-alpine`                   | musl  | ~210 MB     | Hardhat/Solidity + TypeScript SDK pipelines |
 
 > **CI-only images.** Run as `root`. Do **not** use as a runtime base for
 > application containers. The `io.codehunters.usage=ci-only` label flags misuse.
 
-Architectures for both variants: `linux/amd64`, `linux/arm64` (multi-arch manifest).
+Architectures for every variant: `linux/amd64`, `linux/arm64` (multi-arch manifest).
 
 ---
 
@@ -34,16 +36,20 @@ Common to **all** variants:
 
 Variant-specific tooling:
 
-| Tool / runtime    | JDK | GraalVM | KrakenD | Source                                |
-|-------------------|:---:|:-------:|:-------:|---------------------------------------|
-| Temurin JDK 21    | ✅  | ❌      | ❌      | `eclipse-temurin:21-jdk-alpine`       |
-| GraalVM CE JDK 21 | ❌  | ✅      | ❌      | `ghcr.io/graalvm/jdk-community:21`    |
-| `native-image`    | ❌  | ✅      | ❌      | preinstalled in GraalVM 21+           |
-| Gradle CLI 9.0    | ✅  | ✅      | ❌      | services.gradle.org (SHA-256 pinned)  |
-| KrakenD CLI       | ❌  | ❌      | ✅      | `krakend:${KRAKEND_VERSION}` (multi-stage COPY) |
-| Go toolchain      | ❌  | ❌      | ✅      | `golang:${GO_VERSION}-alpine` (multi-stage COPY) |
-| `build-base`, `binutils-gold` (for `go build -buildmode=plugin`) | ❌ | ❌ | ✅ | apk |
-| `make`            | ❌  | ❌      | ✅      | apk                                   |
+| Tool / runtime    | JDK | GraalVM | KrakenD | Node | Source                           |
+|-------------------|:---:|:-------:|:-------:|:----:|----------------------------------|
+| Temurin JDK 21    | ✅  | ❌      | ❌      | ❌   | `eclipse-temurin:21-jdk-alpine`  |
+| GraalVM CE JDK 21 | ❌  | ✅      | ❌      | ❌   | `ghcr.io/graalvm/jdk-community:21` |
+| `native-image`    | ❌  | ✅      | ❌      | ❌   | preinstalled in GraalVM 21+      |
+| Gradle CLI 9.0    | ✅  | ✅      | ❌      | ❌   | services.gradle.org (SHA-256 pinned) |
+| KrakenD CLI       | ❌  | ❌      | ✅      | ❌   | `krakend:${KRAKEND_VERSION}` (multi-stage COPY) |
+| Go toolchain      | ❌  | ❌      | ✅      | ❌   | `golang:${GO_VERSION}-alpine` (multi-stage COPY) |
+| `build-base`      | ❌  | ❌      | ✅      | ✅   | apk (Go plugins on KrakenD; node-gyp on Node) |
+| `binutils-gold` (for `go build -buildmode=plugin`) | ❌ | ❌ | ✅ | ❌ | apk |
+| `make`            | ❌  | ❌      | ✅      | ✅   | apk                              |
+| Node.js 20 + npm  | ❌  | ❌      | ❌      | ✅   | `node:${NODE_VERSION}-alpine`    |
+| corepack (pnpm/yarn on demand) | ❌ | ❌ | ❌ | ✅ | bundled with Node 20, enabled at build |
+| `python3` (node-gyp) | ❌ | ❌     | ❌      | ✅   | apk                              |
 
 ---
 
@@ -79,10 +85,21 @@ KrakenD variant (`-krakend` suffix):
 | `sha-<short>-krakend`   | Every build                                 | Reproducible debugging            |
 | `main-krakend`          | Push to `main`                              | Bleeding edge                     |
 
+Node variant (`-node` suffix):
+
+| Tag                     | Trigger                                    | Use case                          |
+|-------------------------|--------------------------------------------|-----------------------------------|
+| `vX.Y.Z-node`           | Git tag `v*`                                | Production contract pipelines     |
+| `vX.Y-node`, `vX-node`  | Git tag `v*`                                | Tolerant rolling updates          |
+| `node`                  | Push to `main`                              | Development contract pipelines    |
+| `sha-<short>-node`      | Every build                                 | Reproducible debugging            |
+| `main-node`             | Push to `main`                              | Bleeding edge                     |
+
 **Production rule:** pin a semver tag (e.g. `:v1.0.0`, `:v1.0.0-graalvm`,
-`:v1.0.0-krakend`). Never `:latest` / `:graalvm` / `:krakend` in release/prod
-paths. All three variants are always built from the same commit and share the
-same semver — pick the variant by suffix, the version by number.
+`:v1.0.0-krakend`, `:v1.0.0-node`). Never `:latest` / `:graalvm` / `:krakend` /
+`:node` in release/prod paths. All four variants are always built from the same
+commit and share the same semver — pick the variant by suffix, the version by
+number.
 
 ---
 
@@ -150,6 +167,34 @@ jobs:
       - name: Build + push gateway image
         run: docker buildx build --platform linux/amd64 --push -t $ECR/codehunters-gw-krakend:$GITHUB_SHA .
 ```
+
+### Node variant (Hardhat contracts + TypeScript SDK)
+
+```yaml
+jobs:
+  contracts:
+    runs-on: ubuntu-latest
+    container:
+      image: ghcr.io/codehunters/ci-base-images:v1.0.0-node
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Contracts
+        run: npx hardhat test
+
+      - name: Coverage gate
+        run: npm run coverage
+
+      - name: SDK
+        run: npm run test:sdk
+```
+
+No `actions/setup-node` and no `actions/cache`: the Node version is baked into
+the tag, so a repository that pins `engines: ">=20 <21"` cannot silently drift
+onto a runner default. `npm ci` still resolves from the lockfile.
 
 ### WireGuard VPN deploy job (either variant)
 
@@ -422,6 +467,31 @@ Alpine 3.21 is the base; the `krakend` binary is COPYed from the official
 | Extending the JDK variant with Go + KrakenD        | ~1.2 GB image; pulls Temurin for no gateway purpose      |
 | `debian:bookworm-slim` + apt Go                    | apt Go = 1.21; ABI mismatch with `krakend/builder` (1.25)|
 
+### Node variant — `node:20.20.2-alpine`
+
+Node **20**, not the newest LTS: the consumers pin it (`.nvmrc`,
+`engines: ">=20 <21"`) because their Hardhat toolchain and their exactly-pinned
+crypto dependencies decide bytes that get signed and anchored on a blockchain.
+An image that led the consumers here would silently move the floor under them.
+The version is an `ARG` and the tag carries it, so bumping is one deliberate
+edit, not a rebuild side effect.
+
+`build-base` and `python3` are in this variant for node-gyp: a dependency
+published without a `linux-musl` prebuild compiles from source during `npm ci`,
+and an image that cannot do that breaks every consumer at once, in a step that
+reads as a dependency problem rather than an image problem.
+
+corepack is enabled but no package manager is downloaded at build time — pnpm
+and yarn resolve from the repository's own `packageManager` field on first use,
+so the image stays agnostic about a choice each repository already made.
+
+| Candidate                                     | Reason rejected                                              |
+|-----------------------------------------------|--------------------------------------------------------------|
+| `actions/setup-node` on a plain runner        | What this repository exists to replace: a download per job    |
+| Extending the JDK variant with Node           | ~660 MB to run `npm ci`; no contract pipeline needs a JVM     |
+| `node:20-bookworm-slim` (glibc)               | Would need a third distro branch in every install script      |
+| `node:22-alpine`                              | Consumers pin `<21`; the image would contradict their manifest|
+
 ---
 
 ## Local testing
@@ -439,6 +509,10 @@ docker run --rm -e CI_VARIANT=graalvm codehunters-ci:dev-graalvm /usr/local/bin/
 docker buildx build --platform linux/amd64 -f images/krakend/Dockerfile -t codehunters-ci:dev-krakend .
 docker run --rm -e CI_VARIANT=krakend codehunters-ci:dev-krakend /usr/local/bin/smoke-test.sh
 
+# Node variant
+docker buildx build --platform linux/amd64 -f images/node/Dockerfile -t codehunters-ci:dev-node .
+docker run --rm -e CI_VARIANT=node codehunters-ci:dev-node /usr/local/bin/smoke-test.sh
+
 # Interactive shell
 docker run --rm -it codehunters-ci:dev
 ```
@@ -449,7 +523,13 @@ Multi-arch local build (requires buildx + QEMU):
 docker buildx build --platform linux/amd64,linux/arm64 -f images/jdk/Dockerfile -t codehunters-ci:dev .
 docker buildx build --platform linux/amd64,linux/arm64 -f images/graalvm/Dockerfile -t codehunters-ci:dev-graalvm .
 docker buildx build --platform linux/amd64,linux/arm64 -f images/krakend/Dockerfile -t codehunters-ci:dev-krakend .
+docker buildx build --platform linux/amd64,linux/arm64 -f images/node/Dockerfile -t codehunters-ci:dev-node .
 ```
+
+Building for a foreign architecture on Apple Silicon: pass `TARGETARCH`
+explicitly (`--build-arg TARGETARCH=arm64`). Without it the build takes the
+`amd64` default, pulls the x86_64 AWS CLI and dies under Rosetta before the
+smoke test runs.
 
 `CI_VARIANT` is baked into each image as an env var and controls
 variant-specific smoke assertions (e.g. `native-image --version` is asserted
@@ -464,6 +544,7 @@ images/
   jdk/Dockerfile          # Temurin 21 (Alpine/musl)
   graalvm/Dockerfile      # GraalVM CE for JDK 21 (Oracle Linux 9 / glibc)
   krakend/Dockerfile      # alpine:3.21 + multi-stage COPY of krakend + golang
+  node/Dockerfile         # Node 20 (Alpine/musl) + npm + corepack + node-gyp deps
 scripts/                  # Install + smoke scripts (dispatcher per pkg manager)
   install-base-packages.sh           # dispatcher
   install-base-packages-alpine.sh    # apk path

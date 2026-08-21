@@ -6,6 +6,7 @@
 #   jdk     (default) — Temurin JDK 21 + Gradle + AWS CLI + Docker + WireGuard
 #   graalvm           — GraalVM CE JDK 21 + native-image (everything in jdk +)
 #   krakend           — KrakenD CLI + Go toolchain + make (no JDK/Gradle)
+#   node              — Node 20 + npm + corepack + node-gyp deps (no JDK/Gradle)
 set -euo pipefail
 
 CI_VARIANT="${CI_VARIANT:-jdk}"
@@ -60,6 +61,17 @@ case "${CI_VARIANT}" in
         check "go"      go version
         check "make"    make --version
         ;;
+    node)
+        check "node"     node --version
+        check "npm"      npm --version
+        check "npx"      npx --version
+        check "corepack" corepack --version
+        # node-gyp fallback: a dependency without a linux-musl prebuild builds
+        # from source at `npm ci`, and fails the whole pipeline without these.
+        check "python3"  python3 --version
+        check "cc"       cc --version
+        check "make"     make --version
+        ;;
     *)
         echo "  [FAIL] unknown CI_VARIANT=${CI_VARIANT}" >&2
         fail=1
@@ -84,6 +96,10 @@ case "${CI_VARIANT}" in
     krakend)
         krakend version 2>&1 | head -1 | sed 's/^/  /'
         go version | sed 's/^/  /'
+        ;;
+    node)
+        node --version | sed 's/^/  node /'
+        npm --version | sed 's/^/  npm /'
         ;;
 esac
 

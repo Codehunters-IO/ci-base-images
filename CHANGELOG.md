@@ -8,6 +8,20 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ## [Unreleased]
 
 ### Added
+- **Node variant** published under `-node` tag suffix (`:vX.Y.Z-node`, `:node`
+  rolling tag on `main`). Base image `node:20.20.2-alpine` (musl), ~210 MB.
+  Ships npm and corepack (pnpm/yarn resolved from the consumer's
+  `packageManager` field at first use), plus `build-base` + `python3` for the
+  node-gyp fallback path. Node 20 rather than 22 because the consumers pin it
+  (`.nvmrc`, `engines: ">=20 <21"`). For Hardhat/Solidity and TypeScript SDK
+  pipelines; no JDK, no Gradle.
+- `images/node/Dockerfile` — Node variant build definition.
+- `scripts/install-node-toolchain.sh` — verifies node/npm/npx/corepack and the
+  node-gyp build deps are present, and enables corepack.
+- `mandoc` in the Alpine base packages: the apk build of the AWS CLI renders
+  `aws <cmd> help` through a system pager instead of bundling its own docs, so
+  `aws ecr help` — asserted by the smoke test — failed without it.
+
 - **GraalVM CE for JDK 21 variant** published under `-graalvm` tag suffix
   (`:vX.Y.Z-graalvm`, `:graalvm` rolling tag on `main`). Base image
   `ghcr.io/graalvm/jdk-community:21` (Oracle Linux 9 / glibc). Ships
@@ -39,6 +53,19 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - New OCI labels: `io.codehunters.variant`, `io.codehunters.contents.libc`,
   `io.codehunters.contents.base`, `io.codehunters.contents.native-image` (GraalVM only),
   `io.codehunters.contents.krakend` + `io.codehunters.contents.go` (KrakenD only).
+
+### Fixed
+- **AWS CLI no longer installs on current Alpine (all musl variants).** The
+  glibc PyInstaller bundle pinned to 2.17.65 and run under gcompat dies at
+  image build time: `posix_fallocate64: symbol not found` on Alpine 3.23
+  (`node:20-alpine`), `pthread_attr_setaffinity_np: symbol not found` on 3.24
+  (`eclipse-temurin:21-jdk-alpine`). Each gcompat release drifts further from
+  what the bundle needs, and one pin per Alpine release was never going to
+  hold. `scripts/install-aws-cli.sh` now installs `aws-cli` from the Alpine
+  community repository on musl — a real musl build, no shim — and keeps the
+  official bundle for glibc. Set `AWS_CLI_FROM_BUNDLE=1` to force the old path.
+  This was latent for the JDK and KrakenD variants too: they build today only
+  because they have not been rebuilt since Alpine moved.
 
 ### Changed
 - **Repository layout**: top-level `Dockerfile` moved to
