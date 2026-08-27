@@ -2,8 +2,8 @@
 
 Pre-baked CI base images for `codehunters-ms-*` Java microservice and
 `codehunters/tickets` contract pipelines. Replaces per-run installs
-(`setup-java`, `setup-gradle`, `setup-node`, `apt-get install wireguard`,
-AWS CLI download) with a single `container:` directive in GitHub Actions.
+(`setup-java`, `setup-gradle`, `setup-node`, AWS CLI download) with a single
+`container:` directive in GitHub Actions.
 
 Four variants are published to `ghcr.io/codehunters/ci-base-images`:
 
@@ -30,7 +30,6 @@ Common to **all** variants:
 | AWS CLI          | v2 (musl: 2.17.65 pinned; glibc: latest) | awscli.amazonaws.com (TLS)|
 | Docker CLI       | distro repo         | apk (Alpine) / docker-ce (OL9)      |
 | Docker Buildx    | distro repo         | apk / docker-buildx-plugin          |
-| WireGuard tools  | distro repo         | apk (Alpine) / EPEL (OL9)           |
 | GNU userland     | coreutils, gawk, sed, grep | apk / microdnf               |
 | Misc             | bash, jq, bc, curl, wget, git, openssh, iptables, iproute, gnupg, tzdata | apk / microdnf |
 
@@ -196,24 +195,6 @@ No `actions/setup-node` and no `actions/cache`: the Node version is baked into
 the tag, so a repository that pins `engines: ">=20 <21"` cannot silently drift
 onto a runner default. `npm ci` still resolves from the lockfile.
 
-### WireGuard VPN deploy job (either variant)
-
-```yaml
-deploy:
-  runs-on: ubuntu-latest
-  container:
-    image: ghcr.io/codehunters/ci-base-images:v1.0.0
-    options: --cap-add=NET_ADMIN
-  steps:
-    - name: Bring up WireGuard
-      run: |
-        echo "${WG_CONF}" | sudo tee /etc/wireguard/wg0.conf
-        wg-quick up wg0
-```
-
-`NET_ADMIN` capability is required for `wg-quick` to install routes inside the
-container.
-
 ---
 
 ## End-to-end example: deploy a `codehunters-ms-*` service
@@ -221,7 +202,7 @@ container.
 Canonical pattern used by `codehunters-ms-payment`, `codehunters-ms-auth`,
 `codehunters-ms-raffles`, `codehunters-ms-file-share`. The per-service repo delegates to
 the shared reusable workflow in `codehunters/ci-templates`, which runs every stage
-(build, test, ECR publish, EC2 deploy over WireGuard) inside this image.
+(build, test, ECR publish, EC2 deploy) inside this image.
 
 ### Develop pipeline — build + test + coverage + release PR
 
@@ -293,12 +274,16 @@ jobs:
 ```yaml
 container:
   image: ghcr.io/codehunters/ci-base-images:v1.0.0
-  options: --cap-add=NET_ADMIN   # required by wg-quick on deploy_target=ec2-vpn
 ```
 
 Bumping that single pin in `ci-templates` rolls every `codehunters-ms-*` pipeline to
-the new image. No `setup-java`, no `setup-gradle`, no `apt-get install
-wireguard`, no AWS CLI download — every tool is already on `$PATH`.
+the new image. No `setup-java`, no `setup-gradle`, no AWS CLI download — every
+tool is already on `$PATH`.
+
+The VPN deploy target is not served from here. `shared-deploy-ec2-vpn.yml`
+installs `wireguard-tools` on the runner itself and brings the tunnel up
+outside any job container, so the image carries no WireGuard and needs no
+`NET_ADMIN`.
 
 | Pipeline stage          | Tool used         | From this image             |
 |-------------------------|-------------------|-----------------------------|
@@ -307,7 +292,6 @@ wireguard`, no AWS CLI download — every tool is already on `$PATH`.
 | Build OCI image         | `docker buildx`   | yes                         |
 | ECR login + push        | `aws`, `docker`   | yes                         |
 | Open release PR         | `gh`/`git`        | yes (`git` baked in)        |
-| Connect to private VPC  | `wg`, `wg-quick`  | yes (needs `NET_ADMIN`)     |
 | Drive remote deploy     | `ssh`, `bash`     | yes                         |
 | Patch compose file      | `sed`, `awk`      | yes (GNU userland)          |
 
@@ -318,8 +302,8 @@ apt-get + curl awscli` sequence.
 
 Services that run `./gradlew nativeCompile` pin the `-graalvm` suffix tag in
 their `ci-templates` invocation. Only the build job needs the larger GraalVM
-image; deploy stays on the JDK variant (`wg`, `ssh`, `aws`, `docker` are
-identical across variants).
+image; deploy stays on the JDK variant (`ssh`, `aws`, `docker` are identical
+across variants).
 
 ### KrakenD gateway (`codehunters-gw-krakend`)
 
@@ -328,7 +312,7 @@ The gateway repo uses a separate reusable workflow
 variant of this image: `krakend check` (Flexible Config validation),
 `go build -buildmode=plugin` for the custom plugins (`jwt-headers`,
 `ip-resolver`, `trace-context`), `docker buildx` for the gateway image, and
-WireGuard + SSH for the EC2 deploy.
+SSH for the EC2 deploy.
 
 ```yaml
 # .github/workflows/develop-pipeline.yml in codehunters-gw-krakend
@@ -395,7 +379,6 @@ Inside `krakend-main-pipeline.yml`:
 ```yaml
 container:
   image: ghcr.io/codehunters/ci-base-images:v1.0.0-krakend
-  options: --cap-add=NET_ADMIN
 ```
 
 One pin bumps every KrakenD stage at once. The KrakenD CLI version and Go
@@ -436,8 +419,7 @@ and `javac` live in `$JAVA_HOME/bin`, which is why this variant puts that
 directory on `PATH`.
 
 On glibc, the AWS CLI gcompat workaround is unnecessary, so `install-aws-cli.sh`
-defaults to the latest v2 release on this variant. WireGuard tools come from
-`ol9_appstream`.
+defaults to the latest v2 release on this variant.
 
 | Candidate                                       | Reason rejected                                   |
 |-------------------------------------------------|---------------------------------------------------|
@@ -459,14 +441,14 @@ Alpine 3.21 is the base; the `krakend` binary is COPYed from the official
 2. **Single CI container** for the full gateway pipeline: KrakenD CLI
    (`krakend check`), Go plugin compile (`-buildmode=plugin` needs
    `binutils-gold`), `docker buildx` (gateway image build), `aws ecr` push,
-   and `wg`/`ssh` for EC2 deploy — no per-job tool install.
+   and `ssh` for EC2 deploy — no per-job tool install.
 3. **No JDK/Gradle** in this variant — gateway repos don't need them; saves
    ~250 MB versus stuffing them into the JDK base.
 
 | Candidate                                          | Reason rejected                                          |
 |----------------------------------------------------|----------------------------------------------------------|
-| `krakend:2.13.4` directly as CI base               | Lacks Go, docker, aws, wg, ssh — defeats the purpose     |
-| `golang:1.25.7-alpine` directly as CI base         | Lacks krakend CLI, aws v2, docker, wg                    |
+| `krakend:2.13.4` directly as CI base               | Lacks Go, docker, aws, ssh — defeats the purpose         |
+| `golang:1.25.7-alpine` directly as CI base         | Lacks krakend CLI, aws v2, docker                        |
 | Extending the JDK variant with Go + KrakenD        | ~1.2 GB image; pulls Temurin for no gateway purpose      |
 | `debian:bookworm-slim` + apt Go                    | apt Go = 1.21; ABI mismatch with `krakend/builder` (1.25)|
 
@@ -615,6 +597,6 @@ Otherwise every consumer workflow needs an explicit `docker/login-action` step.
 
 ## Security
 
-Images run as `root` — required for `apk` / `microdnf`, and for `wg-quick`
+Images run as `root` — required for `apk` / `microdnf`
 inside containerised CI jobs. **Never** use as a runtime base for application
 containers. Reports of vulnerabilities: andresmontoyat@gmail.com.

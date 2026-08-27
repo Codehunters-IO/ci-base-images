@@ -2,7 +2,7 @@
 # ci-base-images (GraalVM variant) — pre-baked CI image for
 # codehunters-ms-* native-image pipelines.
 # Contents: GraalVM CE for JDK 21 (Oracle Linux 9 / glibc) with native-image,
-# Gradle, WireGuard tools, AWS CLI v2, Docker CLI + buildx.
+# Gradle, AWS CLI v2, Docker CLI + buildx.
 # Usage: jobs.<id>.container: ghcr.io/codehunters/ci-base-images:vX.Y.Z-graalvm
 
 FROM ghcr.io/graalvm/native-image-community:21
@@ -33,7 +33,7 @@ RUN set -eux; \
     /usr/local/bin/smoke-test.sh
 
 LABEL org.opencontainers.image.title="ci-base-images" \
-      org.opencontainers.image.description="CI base image for codehunters-ms-* native-image pipelines (GraalVM CE for JDK 21, Gradle, WireGuard, AWS CLI v2, Docker CLI)" \
+      org.opencontainers.image.description="CI base image for codehunters-ms-* native-image pipelines (GraalVM CE for JDK 21, Gradle, AWS CLI v2, Docker CLI)" \
       org.opencontainers.image.source="https://github.com/codehunters/ci-base-images" \
       org.opencontainers.image.vendor="codehunters" \
       org.opencontainers.image.licenses="MIT" \

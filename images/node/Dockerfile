@@ -2,7 +2,7 @@
 # ci-base-images (Node variant) — pre-baked CI image for Hardhat/Solidity and
 # TypeScript SDK pipelines (codehunters/tickets and friends).
 # Contents: Node.js 20 (Alpine/musl), npm, corepack (pnpm/yarn on demand),
-# node-gyp build deps, WireGuard tools, AWS CLI v2, Docker CLI + buildx.
+# node-gyp build deps, AWS CLI v2, Docker CLI + buildx.
 # Usage: jobs.<id>.container: ghcr.io/codehunters/ci-base-images:vX.Y.Z-node
 
 # Node 20 rather than 22: consumers pin it (`engines: ">=20 <21"`, `.nvmrc`),
@@ -49,7 +49,7 @@ RUN set -eux; \
     /usr/local/bin/smoke-test.sh
 
 LABEL org.opencontainers.image.title="ci-base-images" \
-      org.opencontainers.image.description="CI base image for Hardhat/Solidity and TypeScript pipelines (Node 20, npm, corepack, node-gyp deps, WireGuard, AWS CLI v2, Docker CLI)" \
+      org.opencontainers.image.description="CI base image for Hardhat/Solidity and TypeScript pipelines (Node 20, npm, corepack, node-gyp deps, AWS CLI v2, Docker CLI)" \
       org.opencontainers.image.source="https://github.com/codehunters/ci-base-images" \
       org.opencontainers.image.vendor="codehunters" \
       org.opencontainers.image.licenses="MIT" \

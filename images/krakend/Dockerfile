@@ -2,7 +2,7 @@
 # ci-base-images (KrakenD variant) — pre-baked CI image for
 # codehunters-gw-krakend gateway pipelines.
 # Contents: KrakenD CLI, Go toolchain (matched to krakend/builder), build-base
-# + binutils-gold for `-buildmode=plugin`, make, WireGuard tools, AWS CLI v2,
+# + binutils-gold for `-buildmode=plugin`, make, AWS CLI v2,
 # Docker CLI + buildx, GNU userland.
 # Usage: jobs.<id>.container: ghcr.io/codehunters/ci-base-images:vX.Y.Z-krakend
 
@@ -58,7 +58,7 @@ RUN set -eux; \
     /usr/local/bin/smoke-test.sh
 
 LABEL org.opencontainers.image.title="ci-base-images" \
-      org.opencontainers.image.description="CI base image for codehunters-gw-krakend pipelines (KrakenD CLI, Go toolchain, plugin build deps, WireGuard, AWS CLI v2, Docker CLI)" \
+      org.opencontainers.image.description="CI base image for codehunters-gw-krakend pipelines (KrakenD CLI, Go toolchain, plugin build deps, AWS CLI v2, Docker CLI)" \
       org.opencontainers.image.source="https://github.com/codehunters/ci-base-images" \
       org.opencontainers.image.vendor="codehunters" \
       org.opencontainers.image.licenses="MIT" \

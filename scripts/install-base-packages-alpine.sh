@@ -29,12 +29,11 @@ apk add --no-cache \
     iputils \
     iptables \
     iproute2 \
-    wireguard-tools \
     tzdata \
     gnupg \
     mandoc
 
-for bin in bash jq curl wget git ssh awk sed grep cut bc gpg wg wg-quick; do
+for bin in bash jq curl wget git ssh awk sed grep cut bc gpg; do
     command -v "$bin" >/dev/null 2>&1 || { echo "Missing: $bin" >&2; exit 1; }
 done
 

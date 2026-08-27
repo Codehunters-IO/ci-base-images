@@ -101,6 +101,14 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   This was latent for the JDK and KrakenD variants too: they build today only
   because they have not been rebuilt since Alpine moved.
 
+### Removed
+- **WireGuard tools are no longer installed in any variant.** Nothing consumed
+  them from here: `shared-deploy-ec2-vpn.yml` in `ci-templates` installs
+  `wireguard-tools` on the runner and brings the tunnel up outside any job
+  container, so `deploy_target: ec2-vpn` is unaffected. The `wg` / `wg-quick`
+  smoke-test checks, the `--cap-add=NET_ADMIN` examples in the README, and the
+  `wg-quick` justification for running as `root` in SECURITY.md go with them.
+
 ### Changed
 - **Repository layout**: top-level `Dockerfile` moved to
   `images/jdk/Dockerfile`. Build context remains the repo root so both

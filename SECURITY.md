@@ -12,11 +12,11 @@ Please include:
 ## Scope
 
 This image is **CI-only**. It is not intended as a runtime base for
-application containers and runs as `root` to support `apk`, `apt`, and
-`wg-quick` invocations inside GitHub Actions jobs.
+application containers and runs as `root` to support `apk` and `microdnf`
+invocations inside GitHub Actions jobs.
 
 Vulnerabilities affecting:
-- Pre-installed tools (JDK, Gradle, AWS CLI v2, Docker CLI, WireGuard tools)
+- Pre-installed tools (JDK, Gradle, AWS CLI v2, Docker CLI)
 - Install scripts
 - The image build pipeline
 

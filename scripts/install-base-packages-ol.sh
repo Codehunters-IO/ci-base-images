@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Install base packages required by CI workflows (Oracle Linux 9 / glibc variant).
-# Used by GraalVM image. Enables EPEL for wireguard-tools.
+# Used by GraalVM image.
 set -euo pipefail
 
 # microdnf is preinstalled on Oracle Linux 9 minimal images.
@@ -36,16 +36,9 @@ fi
     tzdata \
     gnupg2
 
-# wireguard-tools comes from ol9_appstream, which is enabled out of the box.
-# It used to be pulled in behind Fedora's epel-release RPM, on the assumption
-# that EL9 only has it in EPEL; Oracle ships its own build. microdnf cannot
-# install from a URL anyway ("No package matches https://..."), so that step
-# could only ever have worked under full dnf.
-"${PM}" install -y wireguard-tools
-
 "${PM}" clean all
 
-for bin in bash jq curl wget git ssh awk sed grep cut bc gpg wg wg-quick; do
+for bin in bash jq curl wget git ssh awk sed grep cut bc gpg; do
     command -v "$bin" >/dev/null 2>&1 || { echo "Missing: $bin" >&2; exit 1; }
 done
 

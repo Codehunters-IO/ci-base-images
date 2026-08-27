@@ -3,7 +3,7 @@
 # Invoked at image build time and as a CI gate before pushing to GHCR.
 #
 # CI_VARIANT controls variant-specific assertions:
-#   jdk     (default) — Temurin JDK 21 + Gradle + AWS CLI + Docker + WireGuard
+#   jdk     (default) — Temurin JDK 21 + Gradle + AWS CLI + Docker
 #   graalvm           — GraalVM CE JDK 21 + native-image (everything in jdk +)
 #   krakend           — KrakenD CLI + Go toolchain + make (no JDK/Gradle)
 #   node              — Node 20 + npm + corepack + node-gyp deps (no JDK/Gradle)
@@ -29,8 +29,6 @@ check "aws"           aws --version
 check "aws ecr help"  aws ecr help
 check "docker"        docker --version
 check "docker buildx" docker buildx version
-check "wg"            wg --version
-check "wg-quick"      wg-quick --help
 check "iptables"      iptables --version
 check "ip"            ip -V
 check "jq"            jq --version
@@ -85,7 +83,6 @@ echo ""
 echo "Versions:"
 aws --version 2>&1 | sed 's/^/  /'
 docker --version | sed 's/^/  /'
-wg --version | sed 's/^/  /'
 case "${CI_VARIANT}" in
     jdk|graalvm)
         java -version 2>&1 | sed -n '1s/^/  /p'

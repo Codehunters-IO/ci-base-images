@@ -1,6 +1,6 @@
 # syntax=docker/dockerfile:1.7
 # ci-base-images (JDK variant) — pre-baked CI image for codehunters-ms-* Java pipelines.
-# Contents: Temurin JDK 21 (Alpine/musl), Gradle, WireGuard tools, AWS CLI v2, Docker CLI + buildx.
+# Contents: Temurin JDK 21 (Alpine/musl), Gradle, AWS CLI v2, Docker CLI + buildx.
 # Usage: jobs.<id>.container: ghcr.io/codehunters/ci-base-images:vX.Y.Z
 
 FROM eclipse-temurin:21-jdk-alpine
@@ -33,7 +33,7 @@ RUN set -eux; \
     /usr/local/bin/smoke-test.sh
 
 LABEL org.opencontainers.image.title="ci-base-images" \
-      org.opencontainers.image.description="CI base image for codehunters-ms-* Java pipelines (JDK 21, Gradle, WireGuard, AWS CLI v2, Docker CLI)" \
+      org.opencontainers.image.description="CI base image for codehunters-ms-* Java pipelines (JDK 21, Gradle, AWS CLI v2, Docker CLI)" \
       org.opencontainers.image.source="https://github.com/codehunters/ci-base-images" \
       org.opencontainers.image.vendor="codehunters" \
       org.opencontainers.image.licenses="MIT" \
