@@ -9,9 +9,13 @@ if ! command -v "${PM}" >/dev/null 2>&1; then
     PM="dnf"
 fi
 
+# No `coreutils`: OL9 minimal ships `coreutils-single`, which provides the same
+# binaries from one multi-call executable and *conflicts* with the split
+# package. Asking for `coreutils` makes microdnf try to swap them and it
+# refuses — "cannot install the best candidate for the job". The verify loop
+# below covers what we actually need from it.
 "${PM}" install -y \
     ca-certificates \
-    coreutils \
     findutils \
     gawk \
     sed \

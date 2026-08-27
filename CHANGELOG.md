@@ -55,6 +55,13 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   `io.codehunters.contents.krakend` + `io.codehunters.contents.go` (KrakenD only).
 
 ### Fixed
+- **GraalVM variant could not install base packages.** `install-base-packages-ol.sh`
+  asked microdnf for `coreutils`, but the GraalVM base image ships
+  `coreutils-single`, and the two packages conflict by design — one multi-call
+  binary versus the split set. microdnf refused the swap with
+  `Could not depsolve transaction ... cannot install the best candidate for the
+  job`. Dropped from the list; `coreutils-single` already provides every binary
+  the image needs, and the script's own verify loop covers them.
 - **Gradle never installed at version `9.0` — that release does not exist.**
   Gradle 9 is published as `9.0.0`; `9.0` names only the milestones. The
   distribution URL `gradle-9.0-bin.zip` happens to answer 200, so the download
