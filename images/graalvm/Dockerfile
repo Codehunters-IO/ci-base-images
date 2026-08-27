@@ -5,7 +5,7 @@
 # Gradle, WireGuard tools (via EPEL), AWS CLI v2, Docker CLI + buildx.
 # Usage: jobs.<id>.container: ghcr.io/codehunters/ci-base-images:vX.Y.Z-graalvm
 
-FROM ghcr.io/graalvm/jdk-community:21
+FROM ghcr.io/graalvm/jdk-community:25
 
 ARG TARGETARCH=amd64
 ARG GRADLE_VERSION=9.0
