@@ -54,6 +54,20 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   `io.codehunters.contents.base`, `io.codehunters.contents.native-image` (GraalVM only),
   `io.codehunters.contents.krakend` + `io.codehunters.contents.go` (KrakenD only).
 
+### Security
+- **AWS CLI bundle signature is now verified, and the check is enforced.**
+  `AWS_CLI_VERIFY_GPG` defaults to `1`. The key is vendored at
+  `scripts/aws-cli-pgp.asc` instead of fetched from
+  `https://awscli.amazonaws.com/aws-cli-pgp.txt`, which 404s — so the previous
+  opt-in path could not have worked — and which, being the host that also
+  serves the artifact, would not have been worth much if it had. Verification
+  requires a `VALIDSIG` line for `FB5DB77FD5C118B80511ADA8A6310ACC4672475C`
+  rather than gpg's exit status, which is `0` for a good signature by any key
+  in the keyring and `0` for an expired key; AWS has signed with an expired key
+  since 2026-07-07.
+- **GraalVM variant pins `AWS_CLI_VERSION=2.36.32`** instead of tracking
+  `latest`, so a rebuild fetches the same artifact twice.
+
 ### Fixed
 - **GraalVM variant never had `native-image`, and could not install WireGuard.**
   Two problems in the same build step. `jdk-community:21` is a plain JDK — the

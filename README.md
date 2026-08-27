@@ -27,7 +27,7 @@ Common to **all** variants:
 
 | Tool             | Version             | Source                              |
 |------------------|---------------------|-------------------------------------|
-| AWS CLI          | v2 (musl: 2.17.65 pinned; glibc: latest) | awscli.amazonaws.com (TLS)|
+| AWS CLI          | v2 (musl: apk `aws-cli`; glibc: 2.36.32 pinned) | Alpine community repo (apk signatures) / awscli.amazonaws.com (PGP) |
 | Docker CLI       | distro repo         | apk (Alpine) / docker-ce (OL9)      |
 | Docker Buildx    | distro repo         | apk / docker-buildx-plugin          |
 | GNU userland     | coreutils, gawk, sed, grep | apk / microdnf               |
@@ -392,14 +392,15 @@ between gateway runtime (`krakend:2.13.4`) and CI plugin builds.
 
 ### JDK variant — `eclipse-temurin:21-jdk-alpine`
 
-Chosen for compactness over `:21-jdk-jammy`. Trade-off: musl libc. AWS CLI v2
-ships as a glibc-linked static bundle, so `gcompat` is installed to provide a
-glibc shim. AWS CLI is pinned to **2.17.65** on musl — the last release built
-on Python 3.11. v2.18+ bundles Python 3.14 which needs the `dladdr1` glibc
-symbol absent in gcompat.
+Chosen for compactness over `:21-jdk-jammy`. Trade-off: musl libc, which AWS
+does not build for: the official CLI bundle is a glibc PyInstaller binary. It
+used to run here under `gcompat`, pinned to 2.17.65 to dodge a missing symbol,
+until newer Alpine releases broke it outright. The CLI now comes from the
+Alpine community repository — a native musl build, verified by apk's own
+package signatures, and no shim.
 
-The only AWS command exercised in CI is `aws ecr get-login-password`, which
-works through `gcompat`. A smoke test catches regressions before publish.
+The only AWS command exercised in CI is `aws ecr get-login-password`. A smoke
+test catches regressions before publish.
 
 | Candidate                            | Reason rejected                                   |
 |--------------------------------------|---------------------------------------------------|
@@ -418,8 +419,10 @@ a second image that ships the tool rather than a way to add it. `native-image`
 and `javac` live in `$JAVA_HOME/bin`, which is why this variant puts that
 directory on `PATH`.
 
-On glibc, the AWS CLI gcompat workaround is unnecessary, so `install-aws-cli.sh`
-defaults to the latest v2 release on this variant.
+On glibc the official AWS bundle runs natively, so this is the one variant that
+installs it. It is pinned (`AWS_CLI_VERSION`) rather than tracking `latest`, so
+a rebuild reproduces the same artifact, and its signature is checked — see
+[AWS CLI integrity](#aws-cli-integrity).
 
 | Candidate                                       | Reason rejected                                   |
 |-------------------------------------------------|---------------------------------------------------|
@@ -600,3 +603,34 @@ Otherwise every consumer workflow needs an explicit `docker/login-action` step.
 Images run as `root` — required for `apk` / `microdnf`
 inside containerised CI jobs. **Never** use as a runtime base for application
 containers. Reports of vulnerabilities: andresmontoyat@gmail.com.
+
+### AWS CLI integrity
+
+The CLI is inert without credentials, so what matters is that the binary is the
+one AWS published.
+
+On musl it comes from the Alpine community repository, and apk verifies the
+package signature itself. On glibc it is the official bundle from
+`awscli.amazonaws.com`, and `install-aws-cli.sh` checks its detached PGP
+signature (`AWS_CLI_VERIFY_GPG=1`, the default).
+
+Two details make that check real rather than decorative:
+
+- **The key is vendored** at `scripts/aws-cli-pgp.asc`. AWS retired
+  `https://awscli.amazonaws.com/aws-cli-pgp.txt` — it 404s — and fetching the
+  key from the host that serves the artifact would let one compromised host
+  supply both halves of the check.
+- **The signer's fingerprint is pinned.** The script requires a `VALIDSIG` line
+  for `FB5DB77FD5C118B80511ADA8A6310ACC4672475C` rather than trusting gpg's exit
+  status, which is `0` for a good signature by *any* key in the keyring. It is
+  also `0` for an expired one, and AWS has been signing with an expired key
+  since 2026-07-07 — so `EXPKEYSIG` is expected here and `VALIDSIG` is what
+  actually pins the signer.
+
+Bumping `AWS_CLI_VERSION` is deliberate. `latest` would make each rebuild fetch
+a different artifact, which is why the GraalVM variant pins it.
+
+What this does **not** cover: the credentials themselves. A CI image that holds
+long-lived IAM keys is a larger exposure than the CLI ever is — prefer GitHub
+OIDC over static `AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY` secrets, and an
+EC2 instance profile over shipping keys to a deploy target.
