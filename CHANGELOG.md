@@ -55,6 +55,13 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   `io.codehunters.contents.krakend` + `io.codehunters.contents.go` (KrakenD only).
 
 ### Fixed
+- **KrakenD variant failed with exit code 141 after printing the linker
+  version.** `install-go.sh` ended on `ld.gold --version | head -1`; `head`
+  exits after one line, the writer takes SIGPIPE, and `set -o pipefail` turns
+  128+13 into a failed build. Version banners are now captured and trimmed
+  without a pipe. The same pattern in `smoke-test.sh` (`java -version`,
+  `native-image --version`, `krakend version`) was replaced with
+  `sed -n '1s/^/  /p'`, which reads to EOF and cannot signal the writer.
 - **GraalVM variant could not install base packages.** `install-base-packages-ol.sh`
   asked microdnf for `coreutils`, but the GraalVM base image ships
   `coreutils-single`, and the two packages conflict by design — one multi-call

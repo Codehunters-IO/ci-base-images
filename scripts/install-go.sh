@@ -23,7 +23,15 @@ for bin in gcc ld ld.gold; do
     command -v "$bin" >/dev/null 2>&1 || { echo "Missing plugin-build dep: $bin" >&2; exit 1; }
 done
 
+# `cmd --version | head -1` is a trap here: head exits after the first line and
+# the writer takes SIGPIPE, which `set -o pipefail` turns into exit 141 and
+# `set -e` turns into a failed build. ld.gold is chatty enough to hit it.
+# Capture first, trim after — no pipe, no signal.
+first_line() {
+    printf '%s\n' "${1%%$'\n'*}"
+}
+
 go version
-gcc --version | head -1
-ld.gold --version | head -1
+first_line "$(gcc --version)"
+first_line "$(ld.gold --version)"
 echo "Go toolchain + plugin build deps OK."

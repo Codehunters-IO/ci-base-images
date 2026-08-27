@@ -79,22 +79,25 @@ case "${CI_VARIANT}" in
 esac
 
 echo ""
+# `sed -n '1p'` and not `head -1`: head exits after the first line, the writer
+# takes SIGPIPE, and `set -o pipefail` reports 141 for a version banner. sed
+# reads to EOF, so the writer always gets to finish.
 echo "Versions:"
 aws --version 2>&1 | sed 's/^/  /'
 docker --version | sed 's/^/  /'
 wg --version | sed 's/^/  /'
 case "${CI_VARIANT}" in
     jdk|graalvm)
-        java -version 2>&1 | head -1 | sed 's/^/  /'
+        java -version 2>&1 | sed -n '1s/^/  /p'
         gradle --version 2>&1 | grep '^Gradle ' | sed 's/^/  /'
         ;;
 esac
 case "${CI_VARIANT}" in
     graalvm)
-        native-image --version 2>&1 | head -1 | sed 's/^/  /'
+        native-image --version 2>&1 | sed -n '1s/^/  /p'
         ;;
     krakend)
-        krakend version 2>&1 | head -1 | sed 's/^/  /'
+        krakend version 2>&1 | sed -n '1s/^/  /p'
         go version | sed 's/^/  /'
         ;;
     node)
