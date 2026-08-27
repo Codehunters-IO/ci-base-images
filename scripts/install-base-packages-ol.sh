@@ -31,8 +31,6 @@ fi
     git \
     openssh-clients \
     iputils \
-    iptables-nft \
-    iproute \
     tzdata \
     gnupg2
 

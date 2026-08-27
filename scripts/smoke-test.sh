@@ -29,8 +29,6 @@ check "aws"           aws --version
 check "aws ecr help"  aws ecr help
 check "docker"        docker --version
 check "docker buildx" docker buildx version
-check "iptables"      iptables --version
-check "ip"            ip -V
 check "jq"            jq --version
 check "bc"            bc --version
 check "curl"          curl --version

@@ -54,6 +54,23 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   `io.codehunters.contents.base`, `io.codehunters.contents.native-image` (GraalVM only),
   `io.codehunters.contents.krakend` + `io.codehunters.contents.go` (KrakenD only).
 
+### Fixed
+- **Every variant failed to publish on `arm64`.** `pr-validation.yml` builds
+  amd64 only, so pull requests went green while `build-publish.yml` — which
+  builds both — failed on main for all four images. Two causes:
+  `ARG TARGETARCH=amd64` shadowed the value BuildKit injects (an ARG only
+  receives it when declared *without* a default), so the arm64 GraalVM build
+  downloaded the x86_64 AWS CLI bundle and died on `/tmp/aws/dist/aws: No such
+  file or directory`; and the musl variants failed the `iptables` smoke
+  assertion under QEMU emulation.
+
+### Removed
+- **`iptables` and `iproute` dropped from every variant.** They were WireGuard's
+  dependencies, kept when it was removed on the grounds that they were not
+  exclusive to it. Nothing else invokes them — the only reference left was the
+  smoke test asserting they exist, and under QEMU that assertion was blocking
+  every arm64 publish.
+
 ### Security
 - **AWS CLI bundle signature is now verified, and the check is enforced.**
   `AWS_CLI_VERIFY_GPG` defaults to `1`. The key is vendored at
