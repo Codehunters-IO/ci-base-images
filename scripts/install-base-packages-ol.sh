@@ -36,9 +36,11 @@ fi
     tzdata \
     gnupg2
 
-# EPEL release RPM hosts wireguard-tools on OL9.
-EPEL_RPM_URL="https://dl.fedoraproject.org/pub/epel/epel-release-latest-9.noarch.rpm"
-"${PM}" install -y "${EPEL_RPM_URL}"
+# wireguard-tools comes from ol9_appstream, which is enabled out of the box.
+# It used to be pulled in behind Fedora's epel-release RPM, on the assumption
+# that EL9 only has it in EPEL; Oracle ships its own build. microdnf cannot
+# install from a URL anyway ("No package matches https://..."), so that step
+# could only ever have worked under full dnf.
 "${PM}" install -y wireguard-tools
 
 "${PM}" clean all

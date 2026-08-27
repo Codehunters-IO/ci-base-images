@@ -10,7 +10,7 @@ Four variants are published to `ghcr.io/codehunters/ci-base-images`:
 | Variant     | Tag suffix    | Base image                              | libc  | Approx size | Use case                                  |
 |-------------|---------------|-----------------------------------------|-------|-------------|-------------------------------------------|
 | **JDK**     | _(none)_      | `eclipse-temurin:21-jdk-alpine`         | musl  | ~450 MB     | `codehunters-ms-*` build/test/deploy (default)  |
-| **GraalVM** | `-graalvm`    | `ghcr.io/graalvm/jdk-community:21`      | glibc | ~1.1 GB     | `nativeCompile` / `native-image` jobs     |
+| **GraalVM** | `-graalvm`    | `ghcr.io/graalvm/native-image-community:21` | glibc | ~1.1 GB     | `nativeCompile` / `native-image` jobs     |
 | **KrakenD** | `-krakend`    | `alpine:3.21` + `krakend` + `golang`    | musl  | ~700 MB     | `codehunters-gw-krakend` gateway pipelines      |
 | **Node**    | `-node`       | `node:20.20.2-alpine`                   | musl  | ~210 MB     | Hardhat/Solidity + TypeScript SDK pipelines |
 
@@ -39,7 +39,7 @@ Variant-specific tooling:
 | Tool / runtime    | JDK | GraalVM | KrakenD | Node | Source                           |
 |-------------------|:---:|:-------:|:-------:|:----:|----------------------------------|
 | Temurin JDK 21    | ✅  | ❌      | ❌      | ❌   | `eclipse-temurin:21-jdk-alpine`  |
-| GraalVM CE JDK 21 | ❌  | ✅      | ❌      | ❌   | `ghcr.io/graalvm/jdk-community:21` |
+| GraalVM CE JDK 21 | ❌  | ✅      | ❌      | ❌   | `ghcr.io/graalvm/native-image-community:21` |
 | `native-image`    | ❌  | ✅      | ❌      | ❌   | preinstalled in GraalVM 21+      |
 | Gradle CLI 9.0.0  | ✅  | ✅      | ❌      | ❌   | services.gradle.org (SHA-256 pinned) |
 | KrakenD CLI       | ❌  | ❌      | ✅      | ❌   | `krakend:${KRAKEND_VERSION}` (multi-stage COPY) |
@@ -426,21 +426,24 @@ works through `gcompat`. A smoke test catches regressions before publish.
 | `debian:bookworm-slim` + manual JDK  | Larger than alpine after tooling added            |
 | `distroless`                         | No shell — breaks CI shell scripts                |
 
-### GraalVM variant — `ghcr.io/graalvm/jdk-community:21`
+### GraalVM variant — `ghcr.io/graalvm/native-image-community:21`
 
 GraalVM Community Edition does not publish an Alpine/musl image. Oracle Linux
-9 (glibc) is the official base. `native-image` ships preinstalled in GraalVM
-for JDK 21 (the `gu` component installer was removed in GraalVM 23.x).
+9 (glibc) is the official base. `native-image` is not part of the JDK: the
+`gu` component installer was removed in GraalVM 23.x, and what replaced it is
+a second image that ships the tool rather than a way to add it. `native-image`
+and `javac` live in `$JAVA_HOME/bin`, which is why this variant puts that
+directory on `PATH`.
 
 On glibc, the AWS CLI gcompat workaround is unnecessary, so `install-aws-cli.sh`
 defaults to the latest v2 release on this variant. WireGuard tools come from
-EPEL (`epel-release-latest-9`).
+`ol9_appstream`.
 
-| Candidate                                                | Reason rejected                                   |
-|----------------------------------------------------------|---------------------------------------------------|
-| `container-registry.oracle.com/graalvm/jdk:21`           | Commercial Oracle GraalVM; licence restrictions   |
-| `ghcr.io/graalvm/native-image-community:21` (older base) | Superseded by `jdk-community` (includes `native-image`) |
-| Custom Alpine + GraalVM tarball                          | No official musl build; binary-compat risk        |
+| Candidate                                       | Reason rejected                                   |
+|-------------------------------------------------|---------------------------------------------------|
+| `container-registry.oracle.com/graalvm/jdk:21`  | Commercial Oracle GraalVM; licence restrictions   |
+| `ghcr.io/graalvm/jdk-community:21`              | JDK only — no `native-image` in `$JAVA_HOME/bin`  |
+| Custom Alpine + GraalVM tarball                 | No official musl build; binary-compat risk        |
 
 ### KrakenD variant — `alpine:3.21` + multi-stage COPY
 

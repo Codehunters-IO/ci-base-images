@@ -55,6 +55,14 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   `io.codehunters.contents.krakend` + `io.codehunters.contents.go` (KrakenD only).
 
 ### Fixed
+- **GraalVM variant never had `native-image`, and could not install WireGuard.**
+  Two problems in the same build step. `jdk-community:21` is a plain JDK — the
+  tool is not in `$JAVA_HOME/bin` — so the base moved to
+  `ghcr.io/graalvm/native-image-community:21`, which carries it. And
+  `install-base-packages-ol.sh` installed EPEL from a Fedora RPM URL, which
+  microdnf rejects outright (`No package matches 'https://...'`); the EPEL step
+  is gone because `wireguard-tools` is in `ol9_appstream` already. `PATH` now
+  includes `$JAVA_HOME/bin`, where `native-image` and `javac` live.
 - **`java` and `javac` were not on `PATH` in the JDK variant.** The Dockerfile
   sets `PATH` outright rather than prepending to it, and the value omitted
   `$JAVA_HOME/bin` — so the image shipped a JDK that nothing could invoke. The
