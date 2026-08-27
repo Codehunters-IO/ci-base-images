@@ -27,8 +27,6 @@ apk add --no-cache \
     git \
     openssh-client \
     iputils \
-    iptables \
-    iproute2 \
     tzdata \
     gnupg \
     mandoc

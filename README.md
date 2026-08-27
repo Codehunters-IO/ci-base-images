@@ -31,7 +31,7 @@ Common to **all** variants:
 | Docker CLI       | distro repo         | apk (Alpine) / docker-ce (OL9)      |
 | Docker Buildx    | distro repo         | apk / docker-buildx-plugin          |
 | GNU userland     | coreutils, gawk, sed, grep | apk / microdnf               |
-| Misc             | bash, jq, bc, curl, wget, git, openssh, iptables, iproute, gnupg, tzdata | apk / microdnf |
+| Misc             | bash, jq, bc, curl, wget, git, openssh, gnupg, tzdata | apk / microdnf |
 
 Variant-specific tooling:
 
@@ -514,10 +514,9 @@ docker buildx build --platform linux/amd64,linux/arm64 -f images/krakend/Dockerf
 docker buildx build --platform linux/amd64,linux/arm64 -f images/node/Dockerfile -t codehunters-ci:dev-node .
 ```
 
-Building for a foreign architecture on Apple Silicon: pass `TARGETARCH`
-explicitly (`--build-arg TARGETARCH=arm64`). Without it the build takes the
-`amd64` default, pulls the x86_64 AWS CLI and dies under Rosetta before the
-smoke test runs.
+`TARGETARCH` needs no `--build-arg`: it is declared without a default, so
+BuildKit fills it with the platform being built. Giving it one would shadow
+that value, and a foreign-architecture build would fetch x86_64 artefacts.
 
 `CI_VARIANT` is baked into each image as an env var and controls
 variant-specific smoke assertions (e.g. `native-image --version` is asserted

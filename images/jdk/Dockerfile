@@ -5,7 +5,10 @@
 
 FROM eclipse-temurin:21-jdk-alpine
 
-ARG TARGETARCH=amd64
+# No default: BuildKit fills TARGETARCH with the platform being built, but only
+# for an ARG declared without one. `ARG TARGETARCH=amd64` shadows it, and the
+# arm64 build then downloads x86_64 artefacts.
+ARG TARGETARCH
 ARG GRADLE_VERSION=9.0.0
 # AWS_CLI_VERSION only applies if AWS_CLI_FROM_BUNDLE=1 forces the glibc bundle;
 # the musl path installs aws-cli from the Alpine community repo and ignores it.

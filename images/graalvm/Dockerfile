@@ -7,7 +7,10 @@
 
 FROM ghcr.io/graalvm/native-image-community:21
 
-ARG TARGETARCH=amd64
+# No default: BuildKit fills TARGETARCH with the platform being built, but only
+# for an ARG declared without one. `ARG TARGETARCH=amd64` shadows it, and the
+# arm64 build then downloads x86_64 artefacts.
+ARG TARGETARCH
 ARG GRADLE_VERSION=9.0.0
 # Pinned, not `latest`: this variant installs the official bundle, and an
 # unpinned URL makes every rebuild fetch a different artifact. Bump deliberately.
