@@ -18,7 +18,7 @@ FROM krakend:${KRAKEND_VERSION} AS krakend-src
 FROM golang:${GO_VERSION}-alpine AS go-src
 
 # Stage 3 — final CI image.
-FROM alpine:3.21
+FROM alpine:3.24
 
 ARG TARGETARCH=amd64
 ARG KRAKEND_VERSION=2.13.4
