@@ -1,10 +1,11 @@
 #!/usr/bin/env bash
 # Verifier — confirms `native-image` is on PATH and reports its version.
 #
-# GraalVM for JDK 21 ships native-image preinstalled (the `gu` component
-# installer was removed in GraalVM 23.x / JDK 21+ distributions). This script
-# only validates the binary is present and fails fast if the base image
-# unexpectedly drops native-image in a future release.
+# native-image cannot be installed after the fact: `gu` was removed in GraalVM
+# 23.x / JDK 21+, and the replacement is a separate base image that already
+# carries the tool (`native-image-community`, not `jdk-community`). So this
+# script only validates the binary is present, and fails fast if a future base
+# image drops it or moves it off PATH.
 set -euo pipefail
 
 if ! command -v native-image >/dev/null 2>&1; then

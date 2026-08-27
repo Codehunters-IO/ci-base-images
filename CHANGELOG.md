@@ -8,6 +8,20 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ## [Unreleased]
 
 ### Added
+- **Node variant** published under `-node` tag suffix (`:vX.Y.Z-node`, `:node`
+  rolling tag on `main`). Base image `node:20.20.2-alpine` (musl), ~210 MB.
+  Ships npm and corepack (pnpm/yarn resolved from the consumer's
+  `packageManager` field at first use), plus `build-base` + `python3` for the
+  node-gyp fallback path. Node 20 rather than 22 because the consumers pin it
+  (`.nvmrc`, `engines: ">=20 <21"`). For Hardhat/Solidity and TypeScript SDK
+  pipelines; no JDK, no Gradle.
+- `images/node/Dockerfile` — Node variant build definition.
+- `scripts/install-node-toolchain.sh` — verifies node/npm/npx/corepack and the
+  node-gyp build deps are present, and enables corepack.
+- `mandoc` in the Alpine base packages: the apk build of the AWS CLI renders
+  `aws <cmd> help` through a system pager instead of bundling its own docs, so
+  `aws ecr help` — asserted by the smoke test — failed without it.
+
 - **GraalVM CE for JDK 21 variant** published under `-graalvm` tag suffix
   (`:vX.Y.Z-graalvm`, `:graalvm` rolling tag on `main`). Base image
   `ghcr.io/graalvm/jdk-community:21` (Oracle Linux 9 / glibc). Ships
@@ -39,6 +53,61 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - New OCI labels: `io.codehunters.variant`, `io.codehunters.contents.libc`,
   `io.codehunters.contents.base`, `io.codehunters.contents.native-image` (GraalVM only),
   `io.codehunters.contents.krakend` + `io.codehunters.contents.go` (KrakenD only).
+
+### Fixed
+- **GraalVM variant never had `native-image`, and could not install WireGuard.**
+  Two problems in the same build step. `jdk-community:21` is a plain JDK — the
+  tool is not in `$JAVA_HOME/bin` — so the base moved to
+  `ghcr.io/graalvm/native-image-community:21`, which carries it. And
+  `install-base-packages-ol.sh` installed EPEL from a Fedora RPM URL, which
+  microdnf rejects outright (`No package matches 'https://...'`); the EPEL step
+  is gone because `wireguard-tools` is in `ol9_appstream` already. `PATH` now
+  includes `$JAVA_HOME/bin`, where `native-image` and `javac` live.
+- **`java` and `javac` were not on `PATH` in the JDK variant.** The Dockerfile
+  sets `PATH` outright rather than prepending to it, and the value omitted
+  `$JAVA_HOME/bin` — so the image shipped a JDK that nothing could invoke. The
+  smoke test caught it as soon as the build got far enough to run:
+  `[FAIL] java`. `/opt/java/openjdk/bin` restored to the front of `PATH`.
+- **KrakenD variant failed with exit code 141 after printing the linker
+  version.** `install-go.sh` ended on `ld.gold --version | head -1`; `head`
+  exits after one line, the writer takes SIGPIPE, and `set -o pipefail` turns
+  128+13 into a failed build. Version banners are now captured and trimmed
+  without a pipe. The same pattern in `smoke-test.sh` (`java -version`,
+  `native-image --version`, `krakend version`) was replaced with
+  `sed -n '1s/^/  /p'`, which reads to EOF and cannot signal the writer.
+- **GraalVM variant could not install base packages.** `install-base-packages-ol.sh`
+  asked microdnf for `coreutils`, but the GraalVM base image ships
+  `coreutils-single`, and the two packages conflict by design — one multi-call
+  binary versus the split set. microdnf refused the swap with
+  `Could not depsolve transaction ... cannot install the best candidate for the
+  job`. Dropped from the list; `coreutils-single` already provides every binary
+  the image needs, and the script's own verify loop covers them.
+- **Gradle never installed at version `9.0` — that release does not exist.**
+  Gradle 9 is published as `9.0.0`; `9.0` names only the milestones. The
+  distribution URL `gradle-9.0-bin.zip` happens to answer 200, so the download
+  looked fine, but `gradle-9.0-bin.zip.sha256` is a 404 and the checksum step
+  failed the build with `curl: (22)`. Pinned to `9.0.0`, which serves both the
+  zip and its checksum and is the version `services.gradle.org/versions/all`
+  actually lists. Affects the JDK and GraalVM variants.
+- **AWS CLI no longer installs on current Alpine (all musl variants).** The
+  glibc PyInstaller bundle pinned to 2.17.65 and run under gcompat dies at
+  image build time: `posix_fallocate64: symbol not found` on Alpine 3.23
+  (`node:20-alpine`), `pthread_attr_setaffinity_np: symbol not found` on 3.24
+  (`eclipse-temurin:21-jdk-alpine`). Each gcompat release drifts further from
+  what the bundle needs, and one pin per Alpine release was never going to
+  hold. `scripts/install-aws-cli.sh` now installs `aws-cli` from the Alpine
+  community repository on musl — a real musl build, no shim — and keeps the
+  official bundle for glibc. Set `AWS_CLI_FROM_BUNDLE=1` to force the old path.
+  This was latent for the JDK and KrakenD variants too: they build today only
+  because they have not been rebuilt since Alpine moved.
+
+### Removed
+- **WireGuard tools are no longer installed in any variant.** Nothing consumed
+  them from here: `shared-deploy-ec2-vpn.yml` in `ci-templates` installs
+  `wireguard-tools` on the runner and brings the tunnel up outside any job
+  container, so `deploy_target: ec2-vpn` is unaffected. The `wg` / `wg-quick`
+  smoke-test checks, the `--cap-add=NET_ADMIN` examples in the README, and the
+  `wg-quick` justification for running as `root` in SECURITY.md go with them.
 
 ### Changed
 - **Repository layout**: top-level `Dockerfile` moved to

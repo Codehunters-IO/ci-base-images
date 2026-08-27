@@ -3,9 +3,10 @@
 # Invoked at image build time and as a CI gate before pushing to GHCR.
 #
 # CI_VARIANT controls variant-specific assertions:
-#   jdk     (default) — Temurin JDK 21 + Gradle + AWS CLI + Docker + WireGuard
+#   jdk     (default) — Temurin JDK 21 + Gradle + AWS CLI + Docker
 #   graalvm           — GraalVM CE JDK 21 + native-image (everything in jdk +)
 #   krakend           — KrakenD CLI + Go toolchain + make (no JDK/Gradle)
+#   node              — Node 20 + npm + corepack + node-gyp deps (no JDK/Gradle)
 set -euo pipefail
 
 CI_VARIANT="${CI_VARIANT:-jdk}"
@@ -28,8 +29,6 @@ check "aws"           aws --version
 check "aws ecr help"  aws ecr help
 check "docker"        docker --version
 check "docker buildx" docker buildx version
-check "wg"            wg --version
-check "wg-quick"      wg-quick --help
 check "iptables"      iptables --version
 check "ip"            ip -V
 check "jq"            jq --version
@@ -60,6 +59,17 @@ case "${CI_VARIANT}" in
         check "go"      go version
         check "make"    make --version
         ;;
+    node)
+        check "node"     node --version
+        check "npm"      npm --version
+        check "npx"      npx --version
+        check "corepack" corepack --version
+        # node-gyp fallback: a dependency without a linux-musl prebuild builds
+        # from source at `npm ci`, and fails the whole pipeline without these.
+        check "python3"  python3 --version
+        check "cc"       cc --version
+        check "make"     make --version
+        ;;
     *)
         echo "  [FAIL] unknown CI_VARIANT=${CI_VARIANT}" >&2
         fail=1
@@ -67,23 +77,29 @@ case "${CI_VARIANT}" in
 esac
 
 echo ""
+# `sed -n '1p'` and not `head -1`: head exits after the first line, the writer
+# takes SIGPIPE, and `set -o pipefail` reports 141 for a version banner. sed
+# reads to EOF, so the writer always gets to finish.
 echo "Versions:"
 aws --version 2>&1 | sed 's/^/  /'
 docker --version | sed 's/^/  /'
-wg --version | sed 's/^/  /'
 case "${CI_VARIANT}" in
     jdk|graalvm)
-        java -version 2>&1 | head -1 | sed 's/^/  /'
+        java -version 2>&1 | sed -n '1s/^/  /p'
         gradle --version 2>&1 | grep '^Gradle ' | sed 's/^/  /'
         ;;
 esac
 case "${CI_VARIANT}" in
     graalvm)
-        native-image --version 2>&1 | head -1 | sed 's/^/  /'
+        native-image --version 2>&1 | sed -n '1s/^/  /p'
         ;;
     krakend)
-        krakend version 2>&1 | head -1 | sed 's/^/  /'
+        krakend version 2>&1 | sed -n '1s/^/  /p'
         go version | sed 's/^/  /'
+        ;;
+    node)
+        node --version | sed 's/^/  node /'
+        npm --version | sed 's/^/  npm /'
         ;;
 esac
 

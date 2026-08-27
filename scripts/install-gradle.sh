@@ -3,7 +3,7 @@
 # Verifies SHA-256 against official gradle.org checksum endpoint.
 set -euo pipefail
 
-GRADLE_VERSION="${GRADLE_VERSION:-9.0}"
+GRADLE_VERSION="${GRADLE_VERSION:-9.0.0}"
 GRADLE_BASE_URL="https://services.gradle.org/distributions"
 GRADLE_ZIP="gradle-${GRADLE_VERSION}-bin.zip"
 INSTALL_DIR="/opt/gradle"
@@ -31,13 +31,14 @@ rm -f "${GRADLE_ZIP}" "${GRADLE_ZIP}.sha256"
 
 GRADLE_HOME="${INSTALL_DIR}/gradle-${GRADLE_VERSION}"
 
-# Strip non-runtime assets to shrink image
+# Strip non-runtime assets to shrink image. `:?` on every path: an unset
+# GRADLE_HOME would expand these to /docs, /src, /media at the image root.
 rm -rf \
-    "${GRADLE_HOME}/docs" \
-    "${GRADLE_HOME}/samples" \
-    "${GRADLE_HOME}/src" \
-    "${GRADLE_HOME}/media" \
-    "${GRADLE_HOME}/init.d"
+    "${GRADLE_HOME:?}/docs" \
+    "${GRADLE_HOME:?}/samples" \
+    "${GRADLE_HOME:?}/src" \
+    "${GRADLE_HOME:?}/media" \
+    "${GRADLE_HOME:?}/init.d"
 
 ln -sf "${GRADLE_HOME}/bin/gradle" /usr/local/bin/gradle
 

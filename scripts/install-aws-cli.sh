@@ -1,17 +1,24 @@
 #!/usr/bin/env bash
-# Install AWS CLI v2 from official static bundle.
+# Install AWS CLI v2. Source depends on libc:
 #
-# Bundle is a glibc-linked PyInstaller binary. Behavior depends on libc:
+#   musl (Alpine): `apk add aws-cli` from the community repository — a real
+#     musl build, no shim. Alpine has shipped v2 there since 3.20.
 #
-#   musl (Alpine + gcompat shim): compatible with AWS CLI v2 <= 2.17.x (bundled
-#     Python 3.11). v2.18+ bundles Python 3.14 which requires the `dladdr1`
-#     glibc symbol that gcompat lacks. Pin to 2.17.65 on musl.
+#     The previous approach — AWS's own bundle pinned to 2.17.65 under gcompat
+#     — no longer runs on current Alpine. The bundle is a glibc PyInstaller
+#     binary, and each gcompat release drifts further from what it needs:
+#     `posix_fallocate64` on Alpine 3.23, `pthread_attr_setaffinity_np` on
+#     3.24. Chasing one pin per Alpine release was never going to hold, and
+#     the failure lands at image build time, in every musl variant at once.
+#     Set AWS_CLI_FROM_BUNDLE=1 to force the old path anyway.
 #
-#   glibc (Oracle Linux 9 / GraalVM image): no shim needed. Default to the
-#     latest published v2 release unless caller overrides AWS_CLI_VERSION.
+#   glibc (Oracle Linux 9 / GraalVM image): the official static bundle, no
+#     shim needed. Defaults to the latest published v2 release unless the
+#     caller overrides AWS_CLI_VERSION.
 #
-# Integrity: downloaded over TLS from awscli.amazonaws.com. Optional GPG
-# verification by setting AWS_CLI_VERIFY_GPG=1.
+# Integrity: apk packages are signed by the Alpine builders and verified by
+# apk itself; bundles are downloaded over TLS from awscli.amazonaws.com, with
+# optional GPG verification by setting AWS_CLI_VERIFY_GPG=1.
 set -euo pipefail
 
 TARGETARCH="${TARGETARCH:-amd64}"
@@ -30,6 +37,15 @@ detect_libc() {
 }
 
 LIBC="$(detect_libc)"
+AWS_CLI_FROM_BUNDLE="${AWS_CLI_FROM_BUNDLE:-0}"
+
+if [ "${LIBC}" = "musl" ] && [ "${AWS_CLI_FROM_BUNDLE}" != "1" ]; then
+    echo "Installing AWS CLI v2 from the Alpine community repository (musl native)..."
+    apk add --no-cache aws-cli
+    aws --version
+    echo "AWS CLI installed from apk (libc=musl)."
+    exit 0
+fi
 
 if [ -z "${AWS_CLI_VERSION:-}" ]; then
     case "${LIBC}" in

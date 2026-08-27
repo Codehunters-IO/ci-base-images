@@ -11,7 +11,7 @@ on:
   workflow_dispatch:
     inputs:
       push_latest:
-        description: 'Tag as :latest (jdk) / :graalvm (graalvm) / :krakend (krakend)'
+        description: 'Tag as :latest (jdk) / :graalvm / :krakend / :node'
         required: false
         type: boolean
         default: false
@@ -33,7 +33,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        variant: [jdk, graalvm, krakend]
+        variant: [jdk, graalvm, krakend, node]
         include:
           - variant: jdk
             context_dir: images/jdk
@@ -50,6 +50,11 @@ jobs:
             tag_suffix: '-krakend'
             rolling_tag: krakend
             cache_scope_prefix: krakend-
+          - variant: node
+            context_dir: images/node
+            tag_suffix: '-node'
+            rolling_tag: node
+            cache_scope_prefix: node-
 
     steps:
       - name: Checkout

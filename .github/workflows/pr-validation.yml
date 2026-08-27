@@ -26,6 +26,8 @@ jobs:
             dockerfile: images/graalvm/Dockerfile
           - variant: krakend
             dockerfile: images/krakend/Dockerfile
+          - variant: node
+            dockerfile: images/node/Dockerfile
     steps:
       - uses: actions/checkout@v5
       - name: Hadolint
@@ -64,6 +66,9 @@ jobs:
           - variant: krakend
             context_dir: images/krakend
             cache_scope: krakend-pr-amd64
+          - variant: node
+            context_dir: images/node
+            cache_scope: node-pr-amd64
     steps:
       - uses: actions/checkout@v5
 
