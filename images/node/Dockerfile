@@ -15,10 +15,11 @@ FROM node:${NODE_VERSION}-alpine
 
 ARG TARGETARCH=amd64
 ARG NODE_VERSION=20.20.2
-# AWS CLI pin on musl: last gcompat-compatible release (Python 3.11). v2.18+
-# bundles Python 3.14 which needs the `dladdr1` glibc symbol absent in gcompat.
+# AWS_CLI_VERSION only applies if AWS_CLI_FROM_BUNDLE=1 forces the glibc bundle;
+# the musl path installs aws-cli from the Alpine community repo and ignores it.
+# The pin is the last release that ran under gcompat, kept for that escape hatch.
 ARG AWS_CLI_VERSION=2.17.65
-ARG AWS_CLI_VERIFY_GPG=0
+ARG AWS_CLI_VERIFY_GPG=1
 
 ENV LANG=C.UTF-8 \
     LC_ALL=C.UTF-8 \

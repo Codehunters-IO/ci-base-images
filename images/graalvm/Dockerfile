@@ -9,8 +9,10 @@ FROM ghcr.io/graalvm/native-image-community:21
 
 ARG TARGETARCH=amd64
 ARG GRADLE_VERSION=9.0.0
-ARG AWS_CLI_VERSION=latest
-ARG AWS_CLI_VERIFY_GPG=0
+# Pinned, not `latest`: this variant installs the official bundle, and an
+# unpinned URL makes every rebuild fetch a different artifact. Bump deliberately.
+ARG AWS_CLI_VERSION=2.36.32
+ARG AWS_CLI_VERIFY_GPG=1
 
 ENV LANG=C.UTF-8 \
     LC_ALL=C.UTF-8 \
