@@ -55,6 +55,13 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   `io.codehunters.contents.krakend` + `io.codehunters.contents.go` (KrakenD only).
 
 ### Fixed
+- **Rolling tags were published doubled**: `graalvm-graalvm`, `krakend-krakend`,
+  `node-node`. `flavor.suffix` applies to every tag metadata-action emits,
+  including the `type=raw` rolling tag whose value already names the variant.
+  The entry now sets `suffix=` to opt out. `latest` was unaffected because the
+  JDK variant has no suffix.
+
+### Fixed
 - **Every variant failed to publish on `arm64`.** `pr-validation.yml` builds
   amd64 only, so pull requests went green while `build-publish.yml` — which
   builds both — failed on main for all four images. Two causes:
