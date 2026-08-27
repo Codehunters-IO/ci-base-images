@@ -55,6 +55,13 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   `io.codehunters.contents.krakend` + `io.codehunters.contents.go` (KrakenD only).
 
 ### Fixed
+- **Gradle never installed at version `9.0` — that release does not exist.**
+  Gradle 9 is published as `9.0.0`; `9.0` names only the milestones. The
+  distribution URL `gradle-9.0-bin.zip` happens to answer 200, so the download
+  looked fine, but `gradle-9.0-bin.zip.sha256` is a 404 and the checksum step
+  failed the build with `curl: (22)`. Pinned to `9.0.0`, which serves both the
+  zip and its checksum and is the version `services.gradle.org/versions/all`
+  actually lists. Affects the JDK and GraalVM variants.
 - **AWS CLI no longer installs on current Alpine (all musl variants).** The
   glibc PyInstaller bundle pinned to 2.17.65 and run under gcompat dies at
   image build time: `posix_fallocate64: symbol not found` on Alpine 3.23

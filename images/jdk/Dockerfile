@@ -6,7 +6,7 @@
 FROM eclipse-temurin:21-jdk-alpine
 
 ARG TARGETARCH=amd64
-ARG GRADLE_VERSION=9.0
+ARG GRADLE_VERSION=9.0.0
 # AWS CLI pin on musl: last gcompat-compatible release (Python 3.11). v2.18+
 # bundles Python 3.14 which needs the `dladdr1` glibc symbol absent in gcompat.
 ARG AWS_CLI_VERSION=2.17.65

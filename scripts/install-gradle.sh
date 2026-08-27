@@ -3,7 +3,7 @@
 # Verifies SHA-256 against official gradle.org checksum endpoint.
 set -euo pipefail
 
-GRADLE_VERSION="${GRADLE_VERSION:-9.0}"
+GRADLE_VERSION="${GRADLE_VERSION:-9.0.0}"
 GRADLE_BASE_URL="https://services.gradle.org/distributions"
 GRADLE_ZIP="gradle-${GRADLE_VERSION}-bin.zip"
 INSTALL_DIR="/opt/gradle"
