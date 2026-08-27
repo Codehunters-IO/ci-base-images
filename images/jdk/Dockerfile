@@ -18,7 +18,7 @@ ENV LANG=C.UTF-8 \
     GRADLE_HOME=/opt/gradle/gradle-${GRADLE_VERSION} \
     GRADLE_USER_HOME=/root/.gradle \
     CI_VARIANT=jdk \
-    PATH=/opt/gradle/gradle-${GRADLE_VERSION}/bin:/usr/local/bin:/usr/bin:/bin:/sbin:/usr/sbin
+    PATH=/opt/java/openjdk/bin:/opt/gradle/gradle-${GRADLE_VERSION}/bin:/usr/local/bin:/usr/bin:/bin:/sbin:/usr/sbin
 
 COPY scripts/ /usr/local/bin/
 

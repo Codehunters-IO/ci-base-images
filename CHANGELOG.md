@@ -55,6 +55,11 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   `io.codehunters.contents.krakend` + `io.codehunters.contents.go` (KrakenD only).
 
 ### Fixed
+- **`java` and `javac` were not on `PATH` in the JDK variant.** The Dockerfile
+  sets `PATH` outright rather than prepending to it, and the value omitted
+  `$JAVA_HOME/bin` — so the image shipped a JDK that nothing could invoke. The
+  smoke test caught it as soon as the build got far enough to run:
+  `[FAIL] java`. `/opt/java/openjdk/bin` restored to the front of `PATH`.
 - **KrakenD variant failed with exit code 141 after printing the linker
   version.** `install-go.sh` ended on `ld.gold --version | head -1`; `head`
   exits after one line, the writer takes SIGPIPE, and `set -o pipefail` turns
