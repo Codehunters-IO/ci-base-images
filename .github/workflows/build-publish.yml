@@ -87,7 +87,10 @@ jobs:
             type=semver,pattern={{major}}.{{minor}}
             type=semver,pattern={{major}}
             type=sha,prefix=sha-,format=short
-            type=raw,value=${{ matrix.rolling_tag }},enable=${{ github.ref == 'refs/heads/main' || inputs.push_latest == true }}
+            # suffix= clears the flavor suffix for this entry only. The rolling tag
+            # already names the variant, so inheriting it produced graalvm-graalvm,
+            # krakend-krakend and node-node on the first successful publish.
+            type=raw,value=${{ matrix.rolling_tag }},suffix=,enable=${{ github.ref == 'refs/heads/main' || inputs.push_latest == true }}
           labels: |
             org.opencontainers.image.source=https://github.com/${{ github.repository }}
             org.opencontainers.image.revision=${{ github.sha }}
