@@ -21,13 +21,13 @@ jobs:
       matrix:
         include:
           - variant: jdk
-            dockerfile: images/jdk/Dockerfile
+            dockerfile: images/ci/jdk/Dockerfile
           - variant: graalvm
-            dockerfile: images/graalvm/Dockerfile
+            dockerfile: images/ci/graalvm/Dockerfile
           - variant: krakend
-            dockerfile: images/krakend/Dockerfile
+            dockerfile: images/ci/krakend/Dockerfile
           - variant: node
-            dockerfile: images/node/Dockerfile
+            dockerfile: images/ci/node/Dockerfile
     steps:
       - uses: actions/checkout@v7
       - name: Hadolint
@@ -58,16 +58,16 @@ jobs:
       matrix:
         include:
           - variant: jdk
-            context_dir: images/jdk
+            context_dir: images/ci/jdk
             cache_scope: jdk-pr-amd64
           - variant: graalvm
-            context_dir: images/graalvm
+            context_dir: images/ci/graalvm
             cache_scope: graalvm-pr-amd64
           - variant: krakend
-            context_dir: images/krakend
+            context_dir: images/ci/krakend
             cache_scope: krakend-pr-amd64
           - variant: node
-            context_dir: images/node
+            context_dir: images/ci/node
             cache_scope: node-pr-amd64
     steps:
       - uses: actions/checkout@v7

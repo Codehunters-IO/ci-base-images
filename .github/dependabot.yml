@@ -2,9 +2,10 @@ version: 2
 updates:
   - package-ecosystem: "docker"
     directories:
-      - "/images/jdk"
-      - "/images/graalvm"
-      - "/images/krakend"
+      - "/images/ci/jdk"
+      - "/images/ci/graalvm"
+      - "/images/ci/krakend"
+      - "/images/ci/node"
     schedule:
       interval: "weekly"
     labels:

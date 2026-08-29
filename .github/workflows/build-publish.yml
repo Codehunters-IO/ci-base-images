@@ -36,22 +36,22 @@ jobs:
         variant: [jdk, graalvm, krakend, node]
         include:
           - variant: jdk
-            context_dir: images/jdk
+            context_dir: images/ci/jdk
             tag_suffix: ''
             rolling_tag: latest
             cache_scope_prefix: jdk-
           - variant: graalvm
-            context_dir: images/graalvm
+            context_dir: images/ci/graalvm
             tag_suffix: '-graalvm'
             rolling_tag: graalvm
             cache_scope_prefix: graalvm-
           - variant: krakend
-            context_dir: images/krakend
+            context_dir: images/ci/krakend
             tag_suffix: '-krakend'
             rolling_tag: krakend
             cache_scope_prefix: krakend-
           - variant: node
-            context_dir: images/node
+            context_dir: images/ci/node
             tag_suffix: '-node'
             rolling_tag: node
             cache_scope_prefix: node-
