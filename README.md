@@ -14,12 +14,75 @@ Four variants are published to `ghcr.io/codehunters/ci-base-images`:
 | **KrakenD** | `-krakend`    | `alpine:3.21` + `krakend` + `golang`    | musl  | ~700 MB     | `codehunters-gw-krakend` gateway pipelines      |
 | **Node**    | `-node`       | `node:20.20.2-alpine`                   | musl  | ~210 MB     | Hardhat/Solidity + TypeScript SDK pipelines |
 
-> **CI-only images.** Run as `root`. Do **not** use as a runtime base for
-> application containers. The `io.codehunters.usage=ci-only` label flags misuse.
+> **Two families, opposite rules.** The `ci/` images run as `root` and carry a
+> build toolchain — they exist to run pipeline steps and must **never** be a
+> runtime base. The `runtime/` images run non-root, carry no toolchain, no
+> Docker CLI and no AWS CLI, and are the ones your applications inherit from.
 
 Architectures for every variant: `linux/amd64`, `linux/arm64` (multi-arch manifest).
 
 ---
+
+## Two families
+
+| | `ci/` | `runtime/` |
+|---|---|---|
+| Purpose | run pipeline steps | be the base of your app image |
+| User | `root` | non-root, fixed uid |
+| Java | JDK 21 + Gradle | JRE 21, or distroless for native binaries |
+| Node | + `build-base`, `python3` | runtime only, no compiler |
+| Also carries | Docker CLI, AWS CLI, git, gnupg | none of it |
+| Size | 210 MB – 1.1 GB | 60 – 190 MB |
+
+The second row of "also carries" is the one that matters. A Docker client and
+an AWS CLI inside a container that serves traffic are tools an attacker
+inherits along with the application, together with whatever credentials the
+environment holds. Acceptable in CI, where the job is already trusted with
+them. Not acceptable in production.
+
+### Runtime variants
+
+| Variant | Tag suffix | Base | Runs as | For |
+|---|---|---|---|---|
+| Java | `-java-runtime` | `eclipse-temurin:21-jre-alpine` | uid 10001 | Spring Boot jars |
+| Node | `-node-runtime` | `node:20.20.2-alpine` | uid 1000 (`node`) | Node/NestJS services |
+| Web | `-web-runtime` | `nginx:alpine` | uid 101 (`nginx`), port 8080 | React/Vite static builds |
+| Native | `-native-runtime` | `gcr.io/distroless/base-debian12` | uid 65532 | GraalVM `nativeCompile` binaries |
+
+Multi-stage is the intended shape — build in the `ci` image, ship in the
+`runtime` one:
+
+```dockerfile
+FROM ghcr.io/codehunters-io/ci-base-images:1.0.0 AS build
+WORKDIR /src
+COPY . .
+RUN ./gradlew bootJar --no-daemon
+
+FROM ghcr.io/codehunters-io/ci-base-images:1.0.0-java-runtime
+COPY --from=build /src/build/libs/*.jar /app/app.jar
+CMD ["java", "-jar", "/app/app.jar"]
+```
+
+React, served as static files:
+
+```dockerfile
+FROM ghcr.io/codehunters-io/ci-base-images:1.0.0-node AS build
+WORKDIR /src
+COPY . .
+RUN npm ci && npm run build
+
+FROM ghcr.io/codehunters-io/ci-base-images:1.0.0-web-runtime
+COPY --from=build /src/dist /usr/share/nginx/html
+```
+
+The web image listens on **8080**, not 80: a non-root worker cannot bind a
+privileged port. It already does SPA fallback (`try_files ... /index.html`),
+long-lived immutable caching for hashed assets, `no-cache` for `index.html`,
+and a `/healthz` endpoint.
+
+The native image carries `libz.so.1`, which `distroless/base` does not ship and
+every `native-image` binary links dynamically. Without it the binary dies at
+exec.
 
 ## What's inside
 
@@ -599,9 +662,11 @@ Otherwise every consumer workflow needs an explicit `docker/login-action` step.
 
 ## Security
 
-Images run as `root` — required for `apk` / `microdnf`
-inside containerised CI jobs. **Never** use as a runtime base for application
-containers. Reports of vulnerabilities: andresmontoyat@gmail.com.
+The `ci/` images run as `root` — required for `apk` / `microdnf` inside
+containerised CI jobs — and must **never** be a runtime base for application
+containers. The `runtime/` images are the supported base for that: non-root,
+no build toolchain, no Docker or AWS CLI. Reports of vulnerabilities:
+andresmontoyat@gmail.com.
 
 ### AWS CLI integrity
 

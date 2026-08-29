@@ -6,6 +6,10 @@ updates:
       - "/images/ci/graalvm"
       - "/images/ci/krakend"
       - "/images/ci/node"
+      - "/images/runtime/java"
+      - "/images/runtime/node"
+      - "/images/runtime/web"
+      - "/images/runtime/native"
     schedule:
       interval: "weekly"
     labels:

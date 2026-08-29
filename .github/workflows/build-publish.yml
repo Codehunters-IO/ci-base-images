@@ -33,28 +33,65 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        variant: [jdk, graalvm, krakend, node]
+        variant: [jdk, graalvm, krakend, node,
+                  java-runtime, node-runtime, web-runtime, native-runtime]
         include:
           - variant: jdk
+            smoke_kind: ci
+            smoke_variant: jdk
             context_dir: images/ci/jdk
             tag_suffix: ''
             rolling_tag: latest
             cache_scope_prefix: jdk-
           - variant: graalvm
+            smoke_kind: ci
+            smoke_variant: graalvm
             context_dir: images/ci/graalvm
             tag_suffix: '-graalvm'
             rolling_tag: graalvm
             cache_scope_prefix: graalvm-
           - variant: krakend
+            smoke_kind: ci
+            smoke_variant: krakend
             context_dir: images/ci/krakend
             tag_suffix: '-krakend'
             rolling_tag: krakend
             cache_scope_prefix: krakend-
           - variant: node
+            smoke_kind: ci
+            smoke_variant: node
             context_dir: images/ci/node
             tag_suffix: '-node'
             rolling_tag: node
             cache_scope_prefix: node-
+          - variant: java-runtime
+            smoke_kind: runtime
+            smoke_variant: java
+            context_dir: images/runtime/java
+            tag_suffix: '-java-runtime'
+            rolling_tag: java-runtime
+            cache_scope_prefix: java-runtime-
+          - variant: node-runtime
+            smoke_kind: runtime
+            smoke_variant: node
+            context_dir: images/runtime/node
+            tag_suffix: '-node-runtime'
+            rolling_tag: node-runtime
+            cache_scope_prefix: node-runtime-
+          - variant: web-runtime
+            smoke_kind: web
+            smoke_variant: web
+            context_dir: images/runtime/web
+            tag_suffix: '-web-runtime'
+            rolling_tag: web-runtime
+            cache_scope_prefix: web-runtime-
+          - variant: native-runtime
+            smoke_kind: native
+            smoke_variant: native
+            context_dir: images/runtime/native
+            tag_suffix: '-native-runtime'
+            rolling_tag: native-runtime
+            cache_scope_prefix: native-runtime-
 
     steps:
       - name: Checkout
@@ -111,11 +148,11 @@ jobs:
           cache-to: type=gha,scope=${{ matrix.cache_scope_prefix }}amd64,mode=max
 
       - name: Smoke test (amd64)
-        run: |
-          docker run --rm \
-            -e CI_VARIANT=${{ matrix.variant }} \
-            ci-base-images:smoke-${{ matrix.variant }}-amd64 \
-            /usr/local/bin/smoke-test.sh
+        env:
+          IMAGE: ci-base-images:smoke-${{ matrix.variant }}-amd64
+          KIND: ${{ matrix.smoke_kind }}
+          VARIANT: ${{ matrix.smoke_variant }}
+        run: ./scripts/run-smoke.sh
 
       - name: Build arm64 image and run smoke test
         uses: docker/build-push-action@v6
@@ -130,11 +167,12 @@ jobs:
           cache-to: type=gha,scope=${{ matrix.cache_scope_prefix }}arm64,mode=max
 
       - name: Smoke test (arm64 via QEMU)
-        run: |
-          docker run --rm --platform linux/arm64 \
-            -e CI_VARIANT=${{ matrix.variant }} \
-            ci-base-images:smoke-${{ matrix.variant }}-arm64 \
-            /usr/local/bin/smoke-test.sh
+        env:
+          IMAGE: ci-base-images:smoke-${{ matrix.variant }}-arm64
+          KIND: ${{ matrix.smoke_kind }}
+          VARIANT: ${{ matrix.smoke_variant }}
+          PLATFORM: linux/arm64
+        run: ./scripts/run-smoke.sh
 
       - name: Build and push multi-arch manifest
         id: push

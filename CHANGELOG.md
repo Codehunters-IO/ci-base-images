@@ -54,6 +54,25 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   `io.codehunters.contents.base`, `io.codehunters.contents.native-image` (GraalVM only),
   `io.codehunters.contents.krakend` + `io.codehunters.contents.go` (KrakenD only).
 
+### Added
+- **Runtime base images**, a second family alongside the CI ones. `-java-runtime`
+  (Temurin JRE 21, uid 10001, tini), `-node-runtime` (Node 20, uid 1000, no
+  compiler), `-web-runtime` (nginx unprivileged on 8080, SPA fallback, security
+  headers, `/healthz`) and `-native-runtime` (distroless + `libz`, uid 65532, no
+  shell) — for applications to inherit from, where the CI images explicitly must
+  not be used. All non-root, none carrying a build toolchain, a Docker CLI or an
+  AWS CLI.
+- `scripts/smoke-test-runtime.sh` asserts both what a runtime base owes its app
+  and what it must *not* carry; `scripts/smoke-test-native.sh` asserts the
+  shell-less image from the host, since nothing can be executed inside it.
+- `scripts/run-smoke.sh` dispatches per family — baked-in script for CI images,
+  mounted for runtime ones, host-side for distroless.
+
+### Changed
+- **`images/` is now split into `images/ci/` and `images/runtime/`.** Build
+  contexts, the Dependabot directory list and both workflow matrices follow.
+  Published CI tags are unchanged.
+
 ### Fixed
 - **Rolling tags were published doubled**: `graalvm-graalvm`, `krakend-krakend`,
   `node-node`. `flavor.suffix` applies to every tag metadata-action emits,
