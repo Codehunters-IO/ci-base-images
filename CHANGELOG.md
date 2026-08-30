@@ -15,6 +15,16 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   any example gave an image that does not exist. Also corrects the package
   settings URL, which pointed at `/users/codehunters` for what is an org.
 
+### Changed
+- **Dependabot no longer proposes major bumps for the pinned runtimes.** The
+  restructure into `images/ci/` and `images/runtime/` widened its coverage from
+  three directories to eight, and it immediately opened majors for
+  `eclipse-temurin` (21→25), `graalvm/native-image-community` (21→25), `node`
+  (20→26) and `debian` (12→13). Three of those contradict a version this repo
+  states in its tags, labels and docs; the fourth would desynchronise the libz
+  staged into the native image from the distroless base it is copied into. All
+  four are now ignored at major level, each with its reason in the config.
+
 ### Added
 - **Node variant** published under `-node` tag suffix (`:vX.Y.Z-node`, `:node`
   rolling tag on `main`). Base image `node:20.20.2-alpine` (musl), ~210 MB.
