@@ -5,7 +5,8 @@ Pre-baked CI base images for `codehunters-ms-*` Java microservice and
 (`setup-java`, `setup-gradle`, `setup-node`, AWS CLI download) with a single
 `container:` directive in GitHub Actions.
 
-Four variants are published to `ghcr.io/codehunters/ci-base-images`:
+Eight variants are published to `ghcr.io/codehunters-io/ci-base-images` —
+four for CI, four for runtime:
 
 | Variant     | Tag suffix    | Base image                              | libc  | Approx size | Use case                                  |
 |-------------|---------------|-----------------------------------------|-------|-------------|-------------------------------------------|
@@ -14,12 +15,75 @@ Four variants are published to `ghcr.io/codehunters/ci-base-images`:
 | **KrakenD** | `-krakend`    | `alpine:3.21` + `krakend` + `golang`    | musl  | ~700 MB     | `codehunters-gw-krakend` gateway pipelines      |
 | **Node**    | `-node`       | `node:20.20.2-alpine`                   | musl  | ~210 MB     | Hardhat/Solidity + TypeScript SDK pipelines |
 
-> **CI-only images.** Run as `root`. Do **not** use as a runtime base for
-> application containers. The `io.codehunters.usage=ci-only` label flags misuse.
+> **Two families, opposite rules.** The `ci/` images run as `root` and carry a
+> build toolchain — they exist to run pipeline steps and must **never** be a
+> runtime base. The `runtime/` images run non-root, carry no toolchain, no
+> Docker CLI and no AWS CLI, and are the ones your applications inherit from.
 
 Architectures for every variant: `linux/amd64`, `linux/arm64` (multi-arch manifest).
 
 ---
+
+## Two families
+
+| | `ci/` | `runtime/` |
+|---|---|---|
+| Purpose | run pipeline steps | be the base of your app image |
+| User | `root` | non-root, fixed uid |
+| Java | JDK 21 + Gradle | JRE 21, or distroless for native binaries |
+| Node | + `build-base`, `python3` | runtime only, no compiler |
+| Also carries | Docker CLI, AWS CLI, git, gnupg | none of it |
+| Size | 210 MB – 1.1 GB | 60 – 190 MB |
+
+The second row of "also carries" is the one that matters. A Docker client and
+an AWS CLI inside a container that serves traffic are tools an attacker
+inherits along with the application, together with whatever credentials the
+environment holds. Acceptable in CI, where the job is already trusted with
+them. Not acceptable in production.
+
+### Runtime variants
+
+| Variant | Tag suffix | Base | Runs as | For |
+|---|---|---|---|---|
+| Java | `-java-runtime` | `eclipse-temurin:21-jre-alpine` | uid 10001 | Spring Boot jars |
+| Node | `-node-runtime` | `node:20.20.2-alpine` | uid 1000 (`node`) | Node/NestJS services |
+| Web | `-web-runtime` | `nginx:alpine` | uid 101 (`nginx`), port 8080 | React/Vite static builds |
+| Native | `-native-runtime` | `gcr.io/distroless/base-debian12` | uid 65532 | GraalVM `nativeCompile` binaries |
+
+Multi-stage is the intended shape — build in the `ci` image, ship in the
+`runtime` one:
+
+```dockerfile
+FROM ghcr.io/codehunters-io/ci-base-images:1.1.0 AS build
+WORKDIR /src
+COPY . .
+RUN ./gradlew bootJar --no-daemon
+
+FROM ghcr.io/codehunters-io/ci-base-images:1.1.0-java-runtime
+COPY --from=build /src/build/libs/*.jar /app/app.jar
+CMD ["java", "-jar", "/app/app.jar"]
+```
+
+React, served as static files:
+
+```dockerfile
+FROM ghcr.io/codehunters-io/ci-base-images:1.1.0-node AS build
+WORKDIR /src
+COPY . .
+RUN npm ci && npm run build
+
+FROM ghcr.io/codehunters-io/ci-base-images:1.1.0-web-runtime
+COPY --from=build /src/dist /usr/share/nginx/html
+```
+
+The web image listens on **8080**, not 80: a non-root worker cannot bind a
+privileged port. It already does SPA fallback (`try_files ... /index.html`),
+long-lived immutable caching for hashed assets, `no-cache` for `index.html`,
+and a `/healthz` endpoint.
+
+The native image carries `libz.so.1`, which `distroless/base` does not ship and
+every `native-image` binary links dynamically. Without it the binary dies at
+exec.
 
 ## What's inside
 
@@ -94,10 +158,11 @@ Node variant (`-node` suffix):
 | `sha-<short>-node`      | Every build                                 | Reproducible debugging            |
 | `main-node`             | Push to `main`                              | Bleeding edge                     |
 
-**Production rule:** pin a semver tag (e.g. `:v1.0.0`, `:v1.0.0-graalvm`,
-`:v1.0.0-krakend`, `:v1.0.0-node`). Never `:latest` / `:graalvm` / `:krakend` /
-`:node` in release/prod paths. All four variants are always built from the same
-commit and share the same semver — pick the variant by suffix, the version by
+**Production rule:** pin a semver tag (e.g. `:1.1.0`, `:1.1.0-graalvm`,
+`:1.1.0-java-runtime`). Never a rolling tag — `:latest`, `:graalvm`,
+`:node`, `:java-runtime` — in release or prod paths. All eight variants are
+built from the same commit and share the same semver: pick the variant by
+suffix, the version by
 number.
 
 ---
@@ -111,7 +176,7 @@ jobs:
   build:
     runs-on: ubuntu-latest
     container:
-      image: ghcr.io/codehunters/ci-base-images:v1.0.0
+      image: ghcr.io/codehunters-io/ci-base-images:1.1.0
     steps:
       - uses: actions/checkout@v5
 
@@ -132,7 +197,7 @@ jobs:
   native-build:
     runs-on: ubuntu-latest
     container:
-      image: ghcr.io/codehunters/ci-base-images:v1.0.0-graalvm
+      image: ghcr.io/codehunters-io/ci-base-images:1.1.0-graalvm
     steps:
       - uses: actions/checkout@v5
 
@@ -147,7 +212,7 @@ jobs:
   gateway-build:
     runs-on: ubuntu-latest
     container:
-      image: ghcr.io/codehunters/ci-base-images:v1.0.0-krakend
+      image: ghcr.io/codehunters-io/ci-base-images:1.1.0-krakend
     steps:
       - uses: actions/checkout@v5
 
@@ -174,7 +239,7 @@ jobs:
   contracts:
     runs-on: ubuntu-latest
     container:
-      image: ghcr.io/codehunters/ci-base-images:v1.0.0-node
+      image: ghcr.io/codehunters-io/ci-base-images:1.1.0-node
     steps:
       - uses: actions/checkout@v5
 
@@ -273,7 +338,7 @@ jobs:
 
 ```yaml
 container:
-  image: ghcr.io/codehunters/ci-base-images:v1.0.0
+  image: ghcr.io/codehunters-io/ci-base-images:1.1.0
 ```
 
 Bumping that single pin in `ci-templates` rolls every `codehunters-ms-*` pipeline to
@@ -378,7 +443,7 @@ Inside `krakend-main-pipeline.yml`:
 
 ```yaml
 container:
-  image: ghcr.io/codehunters/ci-base-images:v1.0.0-krakend
+  image: ghcr.io/codehunters-io/ci-base-images:1.1.0-krakend
 ```
 
 One pin bumps every KrakenD stage at once. The KrakenD CLI version and Go
@@ -559,17 +624,20 @@ The build context is the repo root — both Dockerfiles `COPY scripts/` into
 Semver. Cut a new release with:
 
 ```bash
-git tag -a v1.0.0 -m "Release v1.0.0"
-git push origin v1.0.0
+git tag -a v1.1.0 -m "Release v1.1.0"
+git push origin v1.1.0
 ```
 
-The `build-publish.yml` workflow picks up the tag and publishes **all three
-variants** at the same semver: `:v1.0.0` + `:v1.0.0-graalvm` +
-`:v1.0.0-krakend`, plus the matching rolling tags (`:v1.0`, `:v1`,
-`:v1.0-graalvm`, `:v1-graalvm`, `:v1.0-krakend`, `:v1-krakend`) and
-`:sha-<short>` / `:sha-<short>-graalvm` / `:sha-<short>-krakend`.
+The git tag carries the `v`; the published image tags do not. `docker/metadata-action`
+strips it, so `v1.1.0` becomes `:1.1.0`.
 
-`:latest`, `:graalvm`, and `:krakend` are **not** updated on tag pushes —
+The `build-publish.yml` workflow picks up the tag and publishes **all eight
+variants** at the same semver — `:1.1.0`, `:1.1.0-graalvm`, `:1.1.0-krakend`,
+`:1.1.0-node`, `:1.1.0-java-runtime`, `:1.1.0-node-runtime`,
+`:1.1.0-web-runtime`, `:1.1.0-native-runtime` — plus the matching `:1.1` and
+`:1` tags for each, and `:sha-<short>` per variant.
+
+Rolling tags are **not** updated on tag pushes —
 only on `main` pushes.
 
 ### When to bump
@@ -591,7 +659,7 @@ only on `main` pushes.
 ## GHCR package visibility
 
 After the first publish, mark the GHCR package **public** (one-time UI step at
-`https://github.com/users/codehunters/packages/container/ci-base-images/settings`).
+`https://github.com/orgs/Codehunters-IO/packages/container/ci-base-images/settings`).
 
 Otherwise every consumer workflow needs an explicit `docker/login-action` step.
 
@@ -599,9 +667,11 @@ Otherwise every consumer workflow needs an explicit `docker/login-action` step.
 
 ## Security
 
-Images run as `root` — required for `apk` / `microdnf`
-inside containerised CI jobs. **Never** use as a runtime base for application
-containers. Reports of vulnerabilities: andresmontoyat@gmail.com.
+The `ci/` images run as `root` — required for `apk` / `microdnf` inside
+containerised CI jobs — and must **never** be a runtime base for application
+containers. The `runtime/` images are the supported base for that: non-root,
+no build toolchain, no Docker or AWS CLI. Reports of vulnerabilities:
+andresmontoyat@gmail.com.
 
 ### AWS CLI integrity
 
