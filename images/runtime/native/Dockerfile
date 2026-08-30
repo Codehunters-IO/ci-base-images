@@ -9,7 +9,7 @@
 # it — 282 shared objects, none of them zlib. Without this the binary dies at
 # exec with "error while loading shared libraries: libz.so.1". Staged from the
 # same Debian 12 the distroless image is built from, so the glibc matches.
-FROM debian:12-slim AS libs
+FROM debian:13-slim AS libs
 RUN set -eux; \
     mkdir -p /staging; \
     cp -a /usr/lib/*-linux-gnu/libz.so.1* /staging/
