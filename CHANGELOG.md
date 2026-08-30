@@ -7,6 +7,14 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed
+- **Every image reference in the README was unusable.** The org was
+  `ghcr.io/codehunters/...`, but GHCR lowercases `github.repository`, so the
+  path is `codehunters-io`. The tags carried a `v` the registry never sees —
+  `docker/metadata-action` strips it, so `v1.0.0` publishes as `1.0.0`. Copying
+  any example gave an image that does not exist. Also corrects the package
+  settings URL, which pointed at `/users/codehunters` for what is an org.
+
 ### Added
 - **Node variant** published under `-node` tag suffix (`:vX.Y.Z-node`, `:node`
   rolling tag on `main`). Base image `node:20.20.2-alpine` (musl), ~210 MB.

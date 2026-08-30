@@ -5,7 +5,8 @@ Pre-baked CI base images for `codehunters-ms-*` Java microservice and
 (`setup-java`, `setup-gradle`, `setup-node`, AWS CLI download) with a single
 `container:` directive in GitHub Actions.
 
-Four variants are published to `ghcr.io/codehunters/ci-base-images`:
+Eight variants are published to `ghcr.io/codehunters-io/ci-base-images` —
+four for CI, four for runtime:
 
 | Variant     | Tag suffix    | Base image                              | libc  | Approx size | Use case                                  |
 |-------------|---------------|-----------------------------------------|-------|-------------|-------------------------------------------|
@@ -53,12 +54,12 @@ Multi-stage is the intended shape — build in the `ci` image, ship in the
 `runtime` one:
 
 ```dockerfile
-FROM ghcr.io/codehunters-io/ci-base-images:1.0.0 AS build
+FROM ghcr.io/codehunters-io/ci-base-images:1.1.0 AS build
 WORKDIR /src
 COPY . .
 RUN ./gradlew bootJar --no-daemon
 
-FROM ghcr.io/codehunters-io/ci-base-images:1.0.0-java-runtime
+FROM ghcr.io/codehunters-io/ci-base-images:1.1.0-java-runtime
 COPY --from=build /src/build/libs/*.jar /app/app.jar
 CMD ["java", "-jar", "/app/app.jar"]
 ```
@@ -66,12 +67,12 @@ CMD ["java", "-jar", "/app/app.jar"]
 React, served as static files:
 
 ```dockerfile
-FROM ghcr.io/codehunters-io/ci-base-images:1.0.0-node AS build
+FROM ghcr.io/codehunters-io/ci-base-images:1.1.0-node AS build
 WORKDIR /src
 COPY . .
 RUN npm ci && npm run build
 
-FROM ghcr.io/codehunters-io/ci-base-images:1.0.0-web-runtime
+FROM ghcr.io/codehunters-io/ci-base-images:1.1.0-web-runtime
 COPY --from=build /src/dist /usr/share/nginx/html
 ```
 
@@ -157,10 +158,11 @@ Node variant (`-node` suffix):
 | `sha-<short>-node`      | Every build                                 | Reproducible debugging            |
 | `main-node`             | Push to `main`                              | Bleeding edge                     |
 
-**Production rule:** pin a semver tag (e.g. `:v1.0.0`, `:v1.0.0-graalvm`,
-`:v1.0.0-krakend`, `:v1.0.0-node`). Never `:latest` / `:graalvm` / `:krakend` /
-`:node` in release/prod paths. All four variants are always built from the same
-commit and share the same semver — pick the variant by suffix, the version by
+**Production rule:** pin a semver tag (e.g. `:1.1.0`, `:1.1.0-graalvm`,
+`:1.1.0-java-runtime`). Never a rolling tag — `:latest`, `:graalvm`,
+`:node`, `:java-runtime` — in release or prod paths. All eight variants are
+built from the same commit and share the same semver: pick the variant by
+suffix, the version by
 number.
 
 ---
@@ -174,7 +176,7 @@ jobs:
   build:
     runs-on: ubuntu-latest
     container:
-      image: ghcr.io/codehunters/ci-base-images:v1.0.0
+      image: ghcr.io/codehunters-io/ci-base-images:1.1.0
     steps:
       - uses: actions/checkout@v5
 
@@ -195,7 +197,7 @@ jobs:
   native-build:
     runs-on: ubuntu-latest
     container:
-      image: ghcr.io/codehunters/ci-base-images:v1.0.0-graalvm
+      image: ghcr.io/codehunters-io/ci-base-images:1.1.0-graalvm
     steps:
       - uses: actions/checkout@v5
 
@@ -210,7 +212,7 @@ jobs:
   gateway-build:
     runs-on: ubuntu-latest
     container:
-      image: ghcr.io/codehunters/ci-base-images:v1.0.0-krakend
+      image: ghcr.io/codehunters-io/ci-base-images:1.1.0-krakend
     steps:
       - uses: actions/checkout@v5
 
@@ -237,7 +239,7 @@ jobs:
   contracts:
     runs-on: ubuntu-latest
     container:
-      image: ghcr.io/codehunters/ci-base-images:v1.0.0-node
+      image: ghcr.io/codehunters-io/ci-base-images:1.1.0-node
     steps:
       - uses: actions/checkout@v5
 
@@ -336,7 +338,7 @@ jobs:
 
 ```yaml
 container:
-  image: ghcr.io/codehunters/ci-base-images:v1.0.0
+  image: ghcr.io/codehunters-io/ci-base-images:1.1.0
 ```
 
 Bumping that single pin in `ci-templates` rolls every `codehunters-ms-*` pipeline to
@@ -441,7 +443,7 @@ Inside `krakend-main-pipeline.yml`:
 
 ```yaml
 container:
-  image: ghcr.io/codehunters/ci-base-images:v1.0.0-krakend
+  image: ghcr.io/codehunters-io/ci-base-images:1.1.0-krakend
 ```
 
 One pin bumps every KrakenD stage at once. The KrakenD CLI version and Go
@@ -622,17 +624,20 @@ The build context is the repo root — both Dockerfiles `COPY scripts/` into
 Semver. Cut a new release with:
 
 ```bash
-git tag -a v1.0.0 -m "Release v1.0.0"
-git push origin v1.0.0
+git tag -a v1.1.0 -m "Release v1.1.0"
+git push origin v1.1.0
 ```
 
-The `build-publish.yml` workflow picks up the tag and publishes **all three
-variants** at the same semver: `:v1.0.0` + `:v1.0.0-graalvm` +
-`:v1.0.0-krakend`, plus the matching rolling tags (`:v1.0`, `:v1`,
-`:v1.0-graalvm`, `:v1-graalvm`, `:v1.0-krakend`, `:v1-krakend`) and
-`:sha-<short>` / `:sha-<short>-graalvm` / `:sha-<short>-krakend`.
+The git tag carries the `v`; the published image tags do not. `docker/metadata-action`
+strips it, so `v1.1.0` becomes `:1.1.0`.
 
-`:latest`, `:graalvm`, and `:krakend` are **not** updated on tag pushes —
+The `build-publish.yml` workflow picks up the tag and publishes **all eight
+variants** at the same semver — `:1.1.0`, `:1.1.0-graalvm`, `:1.1.0-krakend`,
+`:1.1.0-node`, `:1.1.0-java-runtime`, `:1.1.0-node-runtime`,
+`:1.1.0-web-runtime`, `:1.1.0-native-runtime` — plus the matching `:1.1` and
+`:1` tags for each, and `:sha-<short>` per variant.
+
+Rolling tags are **not** updated on tag pushes —
 only on `main` pushes.
 
 ### When to bump
@@ -654,7 +659,7 @@ only on `main` pushes.
 ## GHCR package visibility
 
 After the first publish, mark the GHCR package **public** (one-time UI step at
-`https://github.com/users/codehunters/packages/container/ci-base-images/settings`).
+`https://github.com/orgs/Codehunters-IO/packages/container/ci-base-images/settings`).
 
 Otherwise every consumer workflow needs an explicit `docker/login-action` step.
 
