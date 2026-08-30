@@ -5,7 +5,7 @@
 # Gradle, AWS CLI v2, Docker CLI + buildx.
 # Usage: jobs.<id>.container: ghcr.io/codehunters/ci-base-images:vX.Y.Z-graalvm
 
-FROM ghcr.io/graalvm/native-image-community:21
+FROM ghcr.io/graalvm/native-image-community:25
 
 # No default: BuildKit fills TARGETARCH with the platform being built, but only
 # for an ARG declared without one. `ARG TARGETARCH=amd64` shadows it, and the
