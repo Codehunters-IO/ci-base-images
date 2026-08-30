@@ -15,6 +15,27 @@ updates:
     labels:
       - "dependencies"
       - "docker"
+    ignore:
+      # The JDK major is this repo's contract, not a dependency detail. The tag,
+      # the io.codehunters.contents.java label, the README and every consumer
+      # target 21; a bump that moves only the FROM makes the labels lie. Moving
+      # it is a release decision with the docs and consumers moved alongside.
+      - dependency-name: "eclipse-temurin"
+        update-types: ["version-update:semver-major"]
+      # Same, and it has to stay in step with the JDK the CI image builds against.
+      - dependency-name: "ghcr.io/graalvm/native-image-community"
+        update-types: ["version-update:semver-major"]
+      # Node 20 is deliberate: the consumers pin `engines: ">=20 <21"` because
+      # their Hardhat toolchain and exactly-pinned crypto dependencies decide
+      # bytes that get signed and anchored on a chain.
+      - dependency-name: "node"
+        update-types: ["version-update:semver-major"]
+      # Hard coupling, not policy: the native runtime stages libz out of this
+      # image into gcr.io/distroless/base-debian12. Debian 13 here would pair a
+      # libz built against one glibc with a userland built against another.
+      # This moves when the distroless base does, and not before.
+      - dependency-name: "debian"
+        update-types: ["version-update:semver-major"]
 
   - package-ecosystem: "github-actions"
     directory: "/"
