@@ -1,0 +1,35 @@
+# Weekly pruning of untagged versions from ghcr.io/codehunters-io/ci-base-images.
+#
+# This package accumulates faster than most: eight variants, each pushed as a
+# multi-arch manifest with attestations, means one publish leaves several
+# unreferenced manifests behind. It reached 150 versions in five days, 124 of
+# them untagged.
+#
+# The scheduled run only ever reports. Deleting means dispatching this by hand
+# with dry_run unchecked, after reading the plan.
+name: Cleanup Packages
+
+on:
+  schedule:
+    # Sunday 04:00 UTC — after the week's releases, before Monday.
+    - cron: '0 4 * * 0'
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: 'Only report what would be deleted'
+        required: false
+        type: boolean
+        default: true
+
+permissions:
+  packages: write
+
+jobs:
+  cleanup:
+    uses: Codehunters-IO/ci-templates/.github/workflows/shared-cleanup-packages.yml@main
+    with:
+      # Tagged versions are never candidates, so 1.0.0, latest, graalvm,
+      # java-runtime and every sha- tag are safe regardless of this value.
+      # On the scheduled run `inputs` is empty, so this evaluates to true.
+      dry_run: ${{ inputs.dry_run != false }}
+    secrets: inherit
