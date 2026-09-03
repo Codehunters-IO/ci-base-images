@@ -19,6 +19,10 @@ on:
 permissions:
   contents: read
   packages: write
+  # Trivy results are uploaded to code scanning, so a CVE that lands after a
+  # publish shows up in the Security tab instead of only in a job log nobody
+  # reopens.
+  security-events: write
 
 env:
   REGISTRY: ghcr.io
@@ -43,6 +47,7 @@ jobs:
             tag_suffix: ''
             rolling_tag: latest
             cache_scope_prefix: jdk-
+            scan_severity: 'CRITICAL'
           - variant: graalvm
             smoke_kind: ci
             smoke_variant: graalvm
@@ -50,6 +55,7 @@ jobs:
             tag_suffix: '-graalvm'
             rolling_tag: graalvm
             cache_scope_prefix: graalvm-
+            scan_severity: 'CRITICAL'
           - variant: krakend
             smoke_kind: ci
             smoke_variant: krakend
@@ -57,6 +63,7 @@ jobs:
             tag_suffix: '-krakend'
             rolling_tag: krakend
             cache_scope_prefix: krakend-
+            scan_severity: 'CRITICAL'
           - variant: node
             smoke_kind: ci
             smoke_variant: node
@@ -64,6 +71,7 @@ jobs:
             tag_suffix: '-node'
             rolling_tag: node
             cache_scope_prefix: node-
+            scan_severity: 'CRITICAL'
           - variant: java-runtime
             smoke_kind: runtime
             smoke_variant: java
@@ -71,6 +79,7 @@ jobs:
             tag_suffix: '-java-runtime'
             rolling_tag: java-runtime
             cache_scope_prefix: java-runtime-
+            scan_severity: 'CRITICAL,HIGH'
           - variant: node-runtime
             smoke_kind: runtime
             smoke_variant: node
@@ -78,6 +87,7 @@ jobs:
             tag_suffix: '-node-runtime'
             rolling_tag: node-runtime
             cache_scope_prefix: node-runtime-
+            scan_severity: 'CRITICAL,HIGH'
           - variant: web-runtime
             smoke_kind: web
             smoke_variant: web
@@ -85,6 +95,7 @@ jobs:
             tag_suffix: '-web-runtime'
             rolling_tag: web-runtime
             cache_scope_prefix: web-runtime-
+            scan_severity: 'CRITICAL,HIGH'
           - variant: native-runtime
             smoke_kind: native
             smoke_variant: native
@@ -92,6 +103,7 @@ jobs:
             tag_suffix: '-native-runtime'
             rolling_tag: native-runtime
             cache_scope_prefix: native-runtime-
+            scan_severity: 'CRITICAL,HIGH'
 
     steps:
       - name: Checkout
@@ -154,6 +166,50 @@ jobs:
           VARIANT: ${{ matrix.smoke_variant }}
         run: ./scripts/run-smoke.sh
 
+      # SARIF first, gate second. The gate is allowed to fail the job, so if it
+      # ran first nothing would ever reach the Security tab on the run that
+      # actually found something.
+      #
+      # Severity here is CRITICAL,HIGH for every variant regardless of the gate
+      # tier: a HIGH in a CI image is worth seeing, just not worth blocking on.
+      - name: Scan image (SARIF for code scanning)
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          image-ref: ci-base-images:smoke-${{ matrix.variant }}-amd64
+          scanners: vuln
+          vuln-type: os,library
+          severity: 'CRITICAL,HIGH'
+          ignore-unfixed: true
+          limit-severities-for-sarif: true
+          trivyignores: .trivyignore.yaml
+          format: sarif
+          output: trivy-${{ matrix.variant }}.sarif
+          exit-code: '0'
+          timeout: '15m'
+
+      - name: Upload SARIF
+        if: always()
+        uses: github/codeql-action/upload-sarif@v4
+        with:
+          sarif_file: trivy-${{ matrix.variant }}.sarif
+          category: trivy-${{ matrix.variant }}
+
+      # Publishing a base image with a fixable CRITICAL hands it to every
+      # consumer that inherits from it, and they have no way to see it.
+      - name: Vulnerability gate
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          image-ref: ci-base-images:smoke-${{ matrix.variant }}-amd64
+          scanners: vuln
+          vuln-type: os,library
+          severity: ${{ matrix.scan_severity }}
+          ignore-unfixed: true
+          trivyignores: .trivyignore.yaml
+          format: table
+          exit-code: '1'
+          timeout: '15m'
+          skip-setup-trivy: true
+
       - name: Build arm64 image and run smoke test
         uses: docker/build-push-action@v6
         with:
@@ -184,6 +240,12 @@ jobs:
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
+          # An SPDX SBOM and max-mode provenance, attached to the manifest as
+          # attestations. Without them a consumer inheriting this image has no
+          # way to answer "what is in it" or "what built it" short of pulling it
+          # apart, and neither question should require that.
+          sbom: true
+          provenance: mode=max
           cache-from: |
             type=gha,scope=${{ matrix.cache_scope_prefix }}amd64
             type=gha,scope=${{ matrix.cache_scope_prefix }}arm64
