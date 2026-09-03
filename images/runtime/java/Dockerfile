@@ -11,7 +11,14 @@ ARG APP_GID=10001
 # JRE, not JDK: an application image has no reason to carry javac, jlink or the
 # rest of the toolchain. That is the builder stage's job, and every tool left
 # behind here is surface an attacker inherits along with the app.
+# apk upgrade before apk add: the upstream tag is rebuilt on its own cadence,
+# and between rebuilds it accumulates patched-upstream CVEs. Five fixable
+# CRITICAL/HIGH (openssl, expat) on the day this was written; zero after.
+# It costs reproducibility — two builds of the same Dockerfile can differ — and
+# that is the trade a base image is supposed to make: it is rebuilt and
+# republished on a schedule precisely so consumers inherit the patches.
 RUN set -eux; \
+    apk upgrade --no-cache; \
     apk add --no-cache tini tzdata ca-certificates; \
     addgroup -g "${APP_GID}" -S app; \
     adduser -u "${APP_UID}" -G app -S -H -s /sbin/nologin app; \
