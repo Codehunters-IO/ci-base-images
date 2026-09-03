@@ -45,6 +45,12 @@ RUN set -eux; \
     apk add --no-cache \
         build-base \
         python3; \
+    # npm 10.8.2, bundled with Node 20, carries a CRITICAL in its own vendored
+    # tar (CVE-2026-59873). It sits in npm's node_modules, so no consumer
+    # lockfile reaches it. npm@11 and not npm@latest: npm 12 wants node
+    # ^22.22.2, and the Node major here follows the consumers.
+    npm install -g npm@11; \
+    npm cache clean --force; \
     TARGETARCH="${TARGETARCH}" AWS_CLI_VERSION="${AWS_CLI_VERSION}" AWS_CLI_VERIFY_GPG="${AWS_CLI_VERIFY_GPG}" \
         /usr/local/bin/install-aws-cli.sh; \
     /usr/local/bin/install-docker-cli.sh; \

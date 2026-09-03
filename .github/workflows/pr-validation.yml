@@ -146,6 +146,9 @@ jobs:
       #
       # ignore-unfixed on both: an advisory with no upstream patch is not
       # actionable, and gating on it turns the check permanently red.
+      # Report first with exit-code 0, gate second. If the gate ran alone its
+      # table would go to the output file and a failure would leave nothing
+      # readable in the log — which is precisely when somebody needs to read it.
       - name: Scan image for vulnerabilities
         uses: aquasecurity/trivy-action@v0.36.0
         with:
@@ -157,7 +160,7 @@ jobs:
           trivyignores: .trivyignore.yaml
           format: table
           output: trivy-${{ matrix.variant }}.txt
-          exit-code: '1'
+          exit-code: '0'
           timeout: '15m'
 
       - name: Publish scan result
@@ -176,6 +179,20 @@ jobs:
             fi
             echo '```'
           } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Vulnerability gate
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          image-ref: ci-base-images:pr-${{ matrix.variant }}-${{ github.event.pull_request.number }}
+          scanners: vuln
+          vuln-type: os,library
+          severity: ${{ matrix.scan_severity }}
+          ignore-unfixed: true
+          trivyignores: .trivyignore.yaml
+          format: table
+          exit-code: '1'
+          timeout: '15m'
+          skip-setup-trivy: true
 
       - name: Report image size
         if: always()

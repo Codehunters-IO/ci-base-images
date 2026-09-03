@@ -104,7 +104,7 @@ Variant-specific tooling:
 | Temurin JDK 21    | ✅  | ❌      | ❌      | ❌   | `eclipse-temurin:21-jdk-alpine`  |
 | GraalVM CE JDK 21 | ❌  | ✅      | ❌      | ❌   | `ghcr.io/graalvm/native-image-community:21` |
 | `native-image`    | ❌  | ✅      | ❌      | ❌   | preinstalled in GraalVM 21+      |
-| Gradle CLI 9.0.0  | ✅  | ✅      | ❌      | ❌   | services.gradle.org (SHA-256 pinned) |
+| Gradle CLI 9.7.1  | ✅  | ✅      | ❌      | ❌   | services.gradle.org (SHA-256 pinned) |
 | KrakenD CLI       | ❌  | ❌      | ✅      | ❌   | `krakend:${KRAKEND_VERSION}` (multi-stage COPY) |
 | Go toolchain      | ❌  | ❌      | ✅      | ❌   | `golang:${GO_VERSION}-alpine` (multi-stage COPY) |
 | `build-base`      | ❌  | ❌      | ✅      | ✅   | apk (Go plugins on KrakenD; node-gyp on Node) |
@@ -188,7 +188,7 @@ jobs:
 ```
 
 `actions/setup-java@v5` and `gradle/actions/setup-gradle@v4` are dropped — the
-image already has Temurin 21 and Gradle 9.0.0 on `$PATH`.
+image already has Temurin 21 and Gradle 9.7.1 on `$PATH`.
 
 ### GraalVM variant (native-image)
 
