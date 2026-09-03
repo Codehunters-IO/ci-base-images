@@ -1,0 +1,175 @@
+# Rescan of what is already published.
+#
+# The PR gate and the publish gate both check an image at the moment it is
+# built. That is the one moment it is least likely to be vulnerable. Advisories
+# land against packages that were already shipped, so an image that passed
+# every gate in the repository is quietly wrong three weeks later and nothing
+# in the pipeline says so. This is the job that says so.
+#
+# It scans the tags consumers actually pull, not a freshly built local image.
+name: Scheduled Image Scan
+
+on:
+  schedule:
+    # Monday 06:00 UTC — before the week's work, after the weekend's advisories.
+    - cron: '0 6 * * 1'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Semver to scan (e.g. 1.0.0). Empty scans the rolling tags from main.'
+        required: false
+        type: string
+        default: ''
+
+permissions:
+  contents: read
+  packages: read
+  security-events: write
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+
+jobs:
+  scan:
+    name: Scan (${{ matrix.variant }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - variant: jdk
+            rolling_tag: latest
+            tag_suffix: ''
+            scan_severity: 'CRITICAL'
+          - variant: graalvm
+            rolling_tag: graalvm
+            tag_suffix: '-graalvm'
+            scan_severity: 'CRITICAL'
+          - variant: krakend
+            rolling_tag: krakend
+            tag_suffix: '-krakend'
+            scan_severity: 'CRITICAL'
+          - variant: node
+            rolling_tag: node
+            tag_suffix: '-node'
+            scan_severity: 'CRITICAL'
+          - variant: java-runtime
+            rolling_tag: java-runtime
+            tag_suffix: '-java-runtime'
+            scan_severity: 'CRITICAL,HIGH'
+          - variant: node-runtime
+            rolling_tag: node-runtime
+            tag_suffix: '-node-runtime'
+            scan_severity: 'CRITICAL,HIGH'
+          - variant: web-runtime
+            rolling_tag: web-runtime
+            tag_suffix: '-web-runtime'
+            scan_severity: 'CRITICAL,HIGH'
+          - variant: native-runtime
+            rolling_tag: native-runtime
+            tag_suffix: '-native-runtime'
+            scan_severity: 'CRITICAL,HIGH'
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Resolve image reference
+        id: ref
+        env:
+          VERSION: ${{ inputs.version }}
+        run: |
+          set -euo pipefail
+          REPO=$(echo "${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}" | tr '[:upper:]' '[:lower:]')
+          if [ -n "${VERSION}" ]; then
+            TAG="${VERSION}${{ matrix.tag_suffix }}"
+          else
+            TAG="${{ matrix.rolling_tag }}"
+          fi
+          echo "image=${REPO}:${TAG}" >> "$GITHUB_OUTPUT"
+          echo "Scanning ${REPO}:${TAG}"
+
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@v4
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      # SARIF before the gate: the gate fails the job, and a failed job that
+      # uploaded nothing leaves the Security tab showing last week's state.
+      - name: Scan (SARIF for code scanning)
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          image-ref: ${{ steps.ref.outputs.image }}
+          scanners: vuln
+          vuln-type: os,library
+          severity: 'CRITICAL,HIGH'
+          ignore-unfixed: true
+          limit-severities-for-sarif: true
+          trivyignores: .trivyignore.yaml
+          format: sarif
+          output: trivy-${{ matrix.variant }}.sarif
+          exit-code: '0'
+          timeout: '15m'
+
+      - name: Upload SARIF
+        if: always()
+        uses: github/codeql-action/upload-sarif@v4
+        with:
+          sarif_file: trivy-${{ matrix.variant }}.sarif
+          category: published-${{ matrix.variant }}
+
+      - name: Scan (report)
+        if: always()
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          image-ref: ${{ steps.ref.outputs.image }}
+          scanners: vuln
+          vuln-type: os,library
+          severity: 'CRITICAL,HIGH'
+          ignore-unfixed: true
+          trivyignores: .trivyignore.yaml
+          format: table
+          output: trivy-${{ matrix.variant }}.txt
+          exit-code: '0'
+          timeout: '15m'
+          skip-setup-trivy: true
+
+      - name: Publish report
+        if: always()
+        run: |
+          {
+            echo "### ${{ matrix.variant }} — \`${{ steps.ref.outputs.image }}\`"
+            echo ""
+            echo "Gate: \`${{ matrix.scan_severity }}\`, fixable only."
+            echo ""
+            echo '```'
+            if [ -s "trivy-${{ matrix.variant }}.txt" ]; then
+              head -c 40000 "trivy-${{ matrix.variant }}.txt"
+            else
+              echo "Clean at CRITICAL/HIGH with a fix available."
+            fi
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      # A published image that has drifted is fixed by rebuilding it, not by
+      # editing anything: the runtime Dockerfiles run `apk upgrade`, so a rerun
+      # of Build & Publish picks up the patches. Failing here is what tells
+      # somebody to press it.
+      - name: Vulnerability gate
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          image-ref: ${{ steps.ref.outputs.image }}
+          scanners: vuln
+          vuln-type: os,library
+          severity: ${{ matrix.scan_severity }}
+          ignore-unfixed: true
+          trivyignores: .trivyignore.yaml
+          format: table
+          exit-code: '1'
+          timeout: '15m'
+          skip-setup-trivy: true
