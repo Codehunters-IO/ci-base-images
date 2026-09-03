@@ -158,6 +158,7 @@ jobs:
           severity: ${{ matrix.scan_severity }}
           ignore-unfixed: true
           trivyignores: .trivyignore.yaml
+          ignore-policy: .trivy/ignore-policy.rego
           format: table
           output: trivy-${{ matrix.variant }}.txt
           exit-code: '0'
@@ -189,6 +190,7 @@ jobs:
           severity: ${{ matrix.scan_severity }}
           ignore-unfixed: true
           trivyignores: .trivyignore.yaml
+          ignore-policy: .trivy/ignore-policy.rego
           format: table
           exit-code: '1'
           timeout: '15m'

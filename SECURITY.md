@@ -73,10 +73,23 @@ anything. Pin by digest downstream if you need a fixed input.
 
 ### Exceptions
 
-`.trivyignore.yaml` holds accepted findings. Each entry carries a statement
-explaining why it cannot be fixed here and an `expired_at` date, after which
-Trivy reports it again and the build fails. An exception that outlives its
-reason is supposed to come back.
+Two mechanisms, for two different shapes of problem.
+
+`.trivyignore.yaml` holds individual accepted findings. Each entry carries a
+statement explaining why it cannot be fixed here and an `expired_at` date,
+after which Trivy reports it again and the build fails. An exception that
+outlives its reason is supposed to come back.
+
+`.trivy/ignore-policy.rego` holds classes of finding that recur. Today it holds
+one: kernel packages in a container image. `ci/graalvm` is built on Oracle
+Linux and pulls `kernel-headers` in through `glibc-devel`, which `native-image`
+requires. Those are C headers that get compiled against and never executed, and
+a container does not boot its own kernel — it calls the host's, which the host
+patches on its own schedule. A rule rather than a list because Oracle rates a
+new kernel advisory CRITICAL often enough that a list would block `main` until
+somebody appended to it, and a gate that needs regular unblocking is a gate
+that gets removed. The other seven images carry no kernel packages, so it
+matches nothing in them.
 
 ### Supply chain
 

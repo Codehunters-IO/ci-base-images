@@ -182,6 +182,7 @@ jobs:
           ignore-unfixed: true
           limit-severities-for-sarif: true
           trivyignores: .trivyignore.yaml
+          ignore-policy: .trivy/ignore-policy.rego
           format: sarif
           output: trivy-${{ matrix.variant }}.sarif
           exit-code: '0'
@@ -205,6 +206,7 @@ jobs:
           severity: ${{ matrix.scan_severity }}
           ignore-unfixed: true
           trivyignores: .trivyignore.yaml
+          ignore-policy: .trivy/ignore-policy.rego
           format: table
           exit-code: '1'
           timeout: '15m'
