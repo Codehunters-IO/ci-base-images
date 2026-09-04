@@ -1,9 +1,14 @@
 # Weekly pruning of untagged versions from ghcr.io/codehunters-io/ci-base-images.
 #
 # This package accumulates faster than most: eight variants, each pushed as a
-# multi-arch manifest with attestations, means one publish leaves several
-# unreferenced manifests behind. It reached 150 versions in five days, 124 of
-# them untagged.
+# multi-arch manifest with an SBOM and provenance, means one publish leaves
+# several unreferenced manifests behind. 230 versions at the time of writing.
+#
+# Most untagged versions here are NOT garbage. 160 of the 190 are platform or
+# attestation manifests belonging to a tagged image - untagged because only the
+# manifest list carries the tag. v1.3.0 of the reusable workflow is the first
+# that reads the registry and protects them; before it, this would have deleted
+# 180 versions and broken `docker pull` on every tag in the package.
 #
 # The scheduled run only ever reports. Deleting means dispatching this by hand
 # with dry_run unchecked, after reading the plan.
@@ -29,10 +34,11 @@ jobs:
     # Pinned, not @main: a reusable workflow resolves at call time, so an
     # unpinned ref means any push to ci-templates changes what runs here
     # with packages: write, without a commit in this repository.
-    uses: Codehunters-IO/ci-templates/.github/workflows/shared-cleanup-packages.yml@b6f83bf77264f6933f78ba62be6b84ef0e833959 # v1.2.0
+    uses: Codehunters-IO/ci-templates/.github/workflows/shared-cleanup-packages.yml@16d4a5147f2560d63ebf88eccf5d92f4370fcf0b # v1.3.0
     with:
-      # Tagged versions are never candidates, so 1.0.0, latest, graalvm,
-      # java-runtime and every sha- tag are safe regardless of this value.
+      # Safe regardless of this value: anything a tag can reach, which is the
+      # tagged manifest lists and every platform and attestation manifest under
+      # them. Being untagged is not enough to be deleted.
       # On the scheduled run `inputs` is empty, so this evaluates to true.
       dry_run: ${{ inputs.dry_run != false }}
     secrets: inherit
