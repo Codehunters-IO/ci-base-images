@@ -4,11 +4,12 @@
 # multi-arch manifest with an SBOM and provenance, means one publish leaves
 # several unreferenced manifests behind. 230 versions at the time of writing.
 #
-# Most untagged versions here are NOT garbage. 160 of the 190 are platform or
+# Most untagged versions here are NOT garbage. 192 of the 222 are platform or
 # attestation manifests belonging to a tagged image - untagged because only the
 # manifest list carries the tag. v1.3.0 of the reusable workflow is the first
 # that reads the registry and protects them; before it, this would have deleted
-# 180 versions and broken `docker pull` on every tag in the package.
+# them and broken `docker pull` on every tag in the package. v1.3.1 also keeps
+# retention on image boundaries, so what it does keep is whole.
 #
 # The scheduled run only ever reports. Deleting means dispatching this by hand
 # with dry_run unchecked, after reading the plan.
@@ -34,7 +35,7 @@ jobs:
     # Pinned, not @main: a reusable workflow resolves at call time, so an
     # unpinned ref means any push to ci-templates changes what runs here
     # with packages: write, without a commit in this repository.
-    uses: Codehunters-IO/ci-templates/.github/workflows/shared-cleanup-packages.yml@16d4a5147f2560d63ebf88eccf5d92f4370fcf0b # v1.3.0
+    uses: Codehunters-IO/ci-templates/.github/workflows/shared-cleanup-packages.yml@cd6b2acf56e91085898d62da5ea6c5820e10f6f6 # v1.3.1
     with:
       # Safe regardless of this value: anything a tag can reach, which is the
       # tagged manifest lists and every platform and attestation manifest under
