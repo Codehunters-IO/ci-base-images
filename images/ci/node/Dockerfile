@@ -11,7 +11,7 @@
 # consumers; it does not lead them.
 ARG NODE_VERSION=20.20.2
 
-FROM node:${NODE_VERSION}-alpine
+FROM node:20.20.2-alpine@sha256:fb4cd12c85ee03686f6af5362a0b0d56d50c58a04632e6c0fb8363f609372293
 
 # No default: BuildKit fills TARGETARCH with the platform being built, but only
 # for an ARG declared without one. `ARG TARGETARCH=amd64` shadows it, and the

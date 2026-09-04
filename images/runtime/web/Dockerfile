@@ -3,7 +3,7 @@
 # Contents: nginx (Alpine), unprivileged, SPA fallback, security headers.
 # Usage: FROM ghcr.io/codehunters-io/ci-base-images:X.Y.Z-web-runtime
 #        COPY --from=build /src/dist /usr/share/nginx/html
-FROM nginx:alpine
+FROM nginx:1.31.5-alpine@sha256:72ba65eb42c10344912a84ff42408db7d34f2feb642204570ab8fc5ffd29f1d3
 
 COPY images/runtime/web/conf/nginx.conf   /etc/nginx/nginx.conf
 COPY images/runtime/web/conf/default.conf /etc/nginx/conf.d/default.conf
@@ -45,6 +45,6 @@ LABEL org.opencontainers.image.title="ci-base-images (web runtime)" \
       io.codehunters.usage="runtime" \
       io.codehunters.variant="web-runtime" \
       io.codehunters.contents.libc="musl" \
-      io.codehunters.contents.base="nginx:alpine" \
+      io.codehunters.contents.base="nginx:1.31.5-alpine" \
       io.codehunters.runs-as="nginx" \
       io.codehunters.listen-port="8080"

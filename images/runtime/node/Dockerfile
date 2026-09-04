@@ -3,7 +3,7 @@
 # Contents: Node 20 (Alpine/musl), tini, CA certificates, tzdata.
 # Usage: FROM ghcr.io/codehunters-io/ci-base-images:X.Y.Z-node-runtime
 
-FROM node:20.20.2-alpine
+FROM node:20.20.2-alpine@sha256:fb4cd12c85ee03686f6af5362a0b0d56d50c58a04632e6c0fb8363f609372293
 
 # No build-base and no python3. A dependency that needs node-gyp compiles in the
 # builder stage; shipping a C toolchain in the image that faces traffic hands an
