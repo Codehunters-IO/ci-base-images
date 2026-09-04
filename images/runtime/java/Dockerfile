@@ -3,7 +3,7 @@
 # Contents: Temurin JRE 21 (Alpine/musl), tini, CA certificates, tzdata.
 # Usage: FROM ghcr.io/codehunters-io/ci-base-images:X.Y.Z-java-runtime
 
-FROM eclipse-temurin:21-jre-alpine
+FROM eclipse-temurin:21-jre-alpine@sha256:974b08960c5d96694c780e65b2d5705268ab1e1ca1a0dd0caf4ba6c3fe34d699
 
 ARG APP_UID=10001
 ARG APP_GID=10001

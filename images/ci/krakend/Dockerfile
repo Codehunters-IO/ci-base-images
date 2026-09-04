@@ -10,15 +10,15 @@ ARG KRAKEND_VERSION=2.13.4
 ARG GO_VERSION=1.25.7
 
 # Stage 1 — pull the KrakenD CLI binary from the official image.
-FROM krakend:${KRAKEND_VERSION} AS krakend-src
+FROM krakend:2.13.4@sha256:93031947cd8e0b438cbb28d53476f46d4e609f69afac294ce2e1517b02b76774 AS krakend-src
 
 # Stage 2 — pull the Go toolchain from the official Alpine image (apk Go is
 # typically behind the version used by krakend/builder; matching the exact
 # build-image Go version is required for `-buildmode=plugin` ABI compat).
-FROM golang:${GO_VERSION}-alpine AS go-src
+FROM golang:1.25.7-alpine@sha256:f6751d823c26342f9506c03797d2527668d095b0a15f1862cddb4d927a7a4ced AS go-src
 
 # Stage 3 — final CI image.
-FROM alpine:3.24
+FROM alpine:3.24@sha256:28bd5fe8b56d1bd048e5babf5b10710ebe0bae67db86916198a6eec434943f8b
 
 # No default: BuildKit fills TARGETARCH with the platform being built, but only
 # for an ARG declared without one. `ARG TARGETARCH=amd64` shadows it, and the
@@ -72,7 +72,7 @@ LABEL org.opencontainers.image.title="ci-base-images" \
       io.codehunters.contents.krakend="${KRAKEND_VERSION}" \
       io.codehunters.contents.go="${GO_VERSION}" \
       io.codehunters.contents.libc="musl" \
-      io.codehunters.contents.base="alpine:3.21"
+      io.codehunters.contents.base="alpine:3.24"
 
 WORKDIR /workspace
 ENTRYPOINT []
