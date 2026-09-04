@@ -8,8 +8,24 @@ FROM node:20.20.2-alpine
 # No build-base and no python3. A dependency that needs node-gyp compiles in the
 # builder stage; shipping a C toolchain in the image that faces traffic hands an
 # attacker a compiler.
+# Two upgrades, two different problems.
+#
+# apk upgrade: the upstream tag lags its Alpine branch between rebuilds.
+#
+# npm@11: Node 20 bundles npm 10.8.2, whose own node_modules carry twenty
+# fixable HIGH advisories (brace-expansion, cross-spawn, glob, ip-address,
+# minimatch and friends). They are not the app's dependencies — they ship
+# inside npm itself — so no lockfile in any consumer can fix them. npm@11 and
+# not npm@latest: npm 12 requires node ^22.22.2, and the Node major here is
+# the contract. Floating within 11.x is deliberate, same trade as apk upgrade.
+#
+# Together: 24 fixable CRITICAL/HIGH -> 0.
 RUN set -eux; \
+    apk upgrade --no-cache; \
     apk add --no-cache tini tzdata ca-certificates; \
+    npm install -g npm@11; \
+    npm cache clean --force; \
+    rm -rf /root/.npm /tmp/*; \
     mkdir -p /app; \
     chown node:node /app
 

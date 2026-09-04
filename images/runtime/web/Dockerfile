@@ -16,6 +16,7 @@ COPY images/runtime/web/conf/default.conf /etc/nginx/conf.d/default.conf
 # gets baked into the layer, and uid 101 then cannot open it — the container
 # fails at startup, not at build. Hence the rm.
 RUN set -eux; \
+    apk upgrade --no-cache; \
     apk add --no-cache tzdata ca-certificates; \
     rm -f /docker-entrypoint.d/*envsubst*; \
     mkdir -p /tmp/client_temp /tmp/proxy_temp /tmp/fastcgi_temp \

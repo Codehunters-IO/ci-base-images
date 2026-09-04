@@ -1,0 +1,23 @@
+# Accepted vulnerability exceptions.
+#
+# An entry here is a decision, not a mute. Every one carries a statement saying
+# why it cannot be fixed here, and an `expired_at` after which Trivy reports it
+# again — so an exception that outlives its reason fails the build instead of
+# quietly surviving forever.
+#
+# Do not add an entry for something a version bump would fix. `--ignore-unfixed`
+# already drops advisories with no upstream patch, so anything reaching this
+# file has a patch that we specifically cannot apply.
+
+vulnerabilities:
+  - id: CVE-2026-56854
+    statement: >-
+      golang.org/x/crypto < 0.55.0, vendored into the KrakenD binary that
+      images/ci/krakend copies out of krakend:2.13.4. Not fixable by us: no
+      published KrakenD release links a fixed x/crypto. Checked 2026-09-02 up
+      to 2.13.10, the newest tag, which still ships v0.53.0. Bumping KrakenD
+      does not clear it and pulls in seven further advisories, so the pinned
+      2.13.4 stays. Scope is the CI image only: the binary parses gateway
+      configs in an ephemeral job and terminates no TLS. It does not reach any
+      runtime/ image. Revisit when KrakenD ships a build on x/crypto >= 0.55.0.
+    expired_at: 2026-12-01

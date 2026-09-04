@@ -70,41 +70,49 @@ jobs:
             smoke_variant: jdk
             context_dir: images/ci/jdk
             cache_scope: jdk-pr-amd64
+            scan_severity: 'CRITICAL'
           - variant: graalvm
             smoke_kind: ci
             smoke_variant: graalvm
             context_dir: images/ci/graalvm
             cache_scope: graalvm-pr-amd64
+            scan_severity: 'CRITICAL'
           - variant: krakend
             smoke_kind: ci
             smoke_variant: krakend
             context_dir: images/ci/krakend
             cache_scope: krakend-pr-amd64
+            scan_severity: 'CRITICAL'
           - variant: node
             smoke_kind: ci
             smoke_variant: node
             context_dir: images/ci/node
             cache_scope: node-pr-amd64
+            scan_severity: 'CRITICAL'
           - variant: java-runtime
             smoke_kind: runtime
             smoke_variant: java
             context_dir: images/runtime/java
             cache_scope: java-runtime-pr-amd64
+            scan_severity: 'CRITICAL,HIGH'
           - variant: node-runtime
             smoke_kind: runtime
             smoke_variant: node
             context_dir: images/runtime/node
             cache_scope: node-runtime-pr-amd64
+            scan_severity: 'CRITICAL,HIGH'
           - variant: web-runtime
             smoke_kind: web
             smoke_variant: web
             context_dir: images/runtime/web
             cache_scope: web-runtime-pr-amd64
+            scan_severity: 'CRITICAL,HIGH'
           - variant: native-runtime
             smoke_kind: native
             smoke_variant: native
             context_dir: images/runtime/native
             cache_scope: native-runtime-pr-amd64
+            scan_severity: 'CRITICAL,HIGH'
     steps:
       - uses: actions/checkout@v7
 
@@ -130,7 +138,66 @@ jobs:
           VARIANT: ${{ matrix.smoke_variant }}
         run: ./scripts/run-smoke.sh
 
+      # Severity is per family, because the two families have opposite jobs.
+      # A runtime image faces traffic, so a fixable HIGH in it is a defect. A CI
+      # image is root with a toolchain by design and lives for one ephemeral
+      # job; gating it on HIGH means blocking every PR on gcc and git advisories
+      # nobody can act on, which trains people to ignore the gate.
+      #
+      # ignore-unfixed on both: an advisory with no upstream patch is not
+      # actionable, and gating on it turns the check permanently red.
+      # Report first with exit-code 0, gate second. If the gate ran alone its
+      # table would go to the output file and a failure would leave nothing
+      # readable in the log — which is precisely when somebody needs to read it.
+      - name: Scan image for vulnerabilities
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          image-ref: ci-base-images:pr-${{ matrix.variant }}-${{ github.event.pull_request.number }}
+          scanners: vuln
+          vuln-type: os,library
+          severity: ${{ matrix.scan_severity }}
+          ignore-unfixed: true
+          trivyignores: .trivyignore.yaml
+          ignore-policy: .trivy/ignore-policy.rego
+          format: table
+          output: trivy-${{ matrix.variant }}.txt
+          exit-code: '0'
+          timeout: '15m'
+
+      - name: Publish scan result
+        if: always()
+        run: |
+          {
+            echo "### Vulnerability scan — ${{ matrix.variant }}"
+            echo ""
+            echo "Gate: \`${{ matrix.scan_severity }}\`, fixable only."
+            echo ""
+            echo '```'
+            if [ -s "trivy-${{ matrix.variant }}.txt" ]; then
+              head -c 40000 "trivy-${{ matrix.variant }}.txt"
+            else
+              echo "No vulnerabilities at or above the gate."
+            fi
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Vulnerability gate
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          image-ref: ci-base-images:pr-${{ matrix.variant }}-${{ github.event.pull_request.number }}
+          scanners: vuln
+          vuln-type: os,library
+          severity: ${{ matrix.scan_severity }}
+          ignore-unfixed: true
+          trivyignores: .trivyignore.yaml
+          ignore-policy: .trivy/ignore-policy.rego
+          format: table
+          exit-code: '1'
+          timeout: '15m'
+          skip-setup-trivy: true
+
       - name: Report image size
+        if: always()
         run: |
           SIZE=$(docker image inspect ci-base-images:pr-${{ matrix.variant }}-${{ github.event.pull_request.number }} \
             --format '{{.Size}}')
