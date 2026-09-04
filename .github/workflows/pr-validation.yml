@@ -37,9 +37,9 @@ jobs:
           - variant: native-runtime
             dockerfile: images/runtime/native/Dockerfile
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
       - name: Hadolint
-        uses: hadolint/hadolint-action@v3.5.0
+        uses: hadolint/hadolint-action@06be81baf89a55ffd0e24b8f04a4185738dd3387 # v3.5.0
         with:
           dockerfile: ${{ matrix.dockerfile }}
           failure-threshold: warning
@@ -50,90 +50,118 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
       - name: ShellCheck
-        uses: ludeeus/action-shellcheck@2.0.0
+        uses: ludeeus/action-shellcheck@00cae500b08a931fb5698e11e79bfbd38e612a38 # 2.0.0
         with:
           scandir: ./scripts
           severity: warning
 
-  build-test:
-    name: Build & Smoke Test (${{ matrix.variant }}, amd64)
+  pins:
+    name: Pin Consistency
     runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - name: Check base image pins and labels
+        run: ./scripts/check-pins.sh
+
+  build-test:
+    name: Build & Smoke Test (${{ matrix.variant }}, ${{ matrix.arch }})
+    runs-on: ${{ matrix.runner }}
     timeout-minutes: 40
+    env:
+      LOCAL_IMAGE: ci-base-images:pr-${{ matrix.variant }}-${{ matrix.arch }}-${{ github.event.pull_request.number }}
     strategy:
       fail-fast: false
       matrix:
+        # Both architectures, because Build & Publish pushes a manifest for
+        # both. Validating only amd64 here is what let an arm64-only break
+        # reach main with a green PR behind it — the TARGETARCH shadowing bug
+        # was found that way, after the fact.
+        #
+        # Native arm64 runners rather than QEMU: the repository is public, so
+        # they cost nothing, and a QEMU arm64 build of the GraalVM image takes
+        # long enough that people stop waiting for it.
+        variant: [jdk, graalvm, krakend, node,
+                  java-runtime, node-runtime, web-runtime, native-runtime]
+        arch: [amd64, arm64]
         include:
+          - arch: amd64
+            runner: ubuntu-latest
+            platform: linux/amd64
+          - arch: arm64
+            runner: ubuntu-24.04-arm
+            platform: linux/arm64
           - variant: jdk
             smoke_kind: ci
             smoke_variant: jdk
             context_dir: images/ci/jdk
-            cache_scope: jdk-pr-amd64
+            cache_scope_prefix: jdk-pr-
             scan_severity: 'CRITICAL'
           - variant: graalvm
             smoke_kind: ci
             smoke_variant: graalvm
             context_dir: images/ci/graalvm
-            cache_scope: graalvm-pr-amd64
+            cache_scope_prefix: graalvm-pr-
             scan_severity: 'CRITICAL'
           - variant: krakend
             smoke_kind: ci
             smoke_variant: krakend
             context_dir: images/ci/krakend
-            cache_scope: krakend-pr-amd64
+            cache_scope_prefix: krakend-pr-
             scan_severity: 'CRITICAL'
           - variant: node
             smoke_kind: ci
             smoke_variant: node
             context_dir: images/ci/node
-            cache_scope: node-pr-amd64
+            cache_scope_prefix: node-pr-
             scan_severity: 'CRITICAL'
           - variant: java-runtime
             smoke_kind: runtime
             smoke_variant: java
             context_dir: images/runtime/java
-            cache_scope: java-runtime-pr-amd64
+            cache_scope_prefix: java-runtime-pr-
             scan_severity: 'CRITICAL,HIGH'
           - variant: node-runtime
             smoke_kind: runtime
             smoke_variant: node
             context_dir: images/runtime/node
-            cache_scope: node-runtime-pr-amd64
+            cache_scope_prefix: node-runtime-pr-
             scan_severity: 'CRITICAL,HIGH'
           - variant: web-runtime
             smoke_kind: web
             smoke_variant: web
             context_dir: images/runtime/web
-            cache_scope: web-runtime-pr-amd64
+            cache_scope_prefix: web-runtime-pr-
             scan_severity: 'CRITICAL,HIGH'
           - variant: native-runtime
             smoke_kind: native
             smoke_variant: native
             context_dir: images/runtime/native
-            cache_scope: native-runtime-pr-amd64
+            cache_scope_prefix: native-runtime-pr-
             scan_severity: 'CRITICAL,HIGH'
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
+        uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3
 
-      - name: Build amd64 image
-        uses: docker/build-push-action@v6
+      - name: Build image
+        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6
         with:
           context: .
           file: ${{ matrix.context_dir }}/Dockerfile
-          platforms: linux/amd64
+          platforms: ${{ matrix.platform }}
           push: false
           load: true
-          tags: ci-base-images:pr-${{ matrix.variant }}-${{ github.event.pull_request.number }}
-          cache-from: type=gha,scope=${{ matrix.cache_scope }}
-          cache-to: type=gha,scope=${{ matrix.cache_scope }},mode=max
+          tags: ${{ env.LOCAL_IMAGE }}
+          cache-from: type=gha,scope=${{ matrix.cache_scope_prefix }}${{ matrix.arch }}
+          cache-to: type=gha,scope=${{ matrix.cache_scope_prefix }}${{ matrix.arch }},mode=max
 
       - name: Smoke test
         env:
-          IMAGE: ci-base-images:pr-${{ matrix.variant }}-${{ github.event.pull_request.number }}
+          IMAGE: ${{ env.LOCAL_IMAGE }}
           KIND: ${{ matrix.smoke_kind }}
           VARIANT: ${{ matrix.smoke_variant }}
         run: ./scripts/run-smoke.sh
@@ -150,9 +178,9 @@ jobs:
       # table would go to the output file and a failure would leave nothing
       # readable in the log — which is precisely when somebody needs to read it.
       - name: Scan image for vulnerabilities
-        uses: aquasecurity/trivy-action@v0.36.0
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
         with:
-          image-ref: ci-base-images:pr-${{ matrix.variant }}-${{ github.event.pull_request.number }}
+          image-ref: ${{ env.LOCAL_IMAGE }}
           scanners: vuln
           vuln-type: os,library
           severity: ${{ matrix.scan_severity }}
@@ -160,7 +188,7 @@ jobs:
           trivyignores: .trivyignore.yaml
           ignore-policy: .trivy/ignore-policy.rego
           format: table
-          output: trivy-${{ matrix.variant }}.txt
+          output: trivy-${{ matrix.variant }}-${{ matrix.arch }}.txt
           exit-code: '0'
           timeout: '15m'
 
@@ -168,13 +196,13 @@ jobs:
         if: always()
         run: |
           {
-            echo "### Vulnerability scan — ${{ matrix.variant }}"
+            echo "### Vulnerability scan — ${{ matrix.variant }} (${{ matrix.arch }})"
             echo ""
             echo "Gate: \`${{ matrix.scan_severity }}\`, fixable only."
             echo ""
             echo '```'
-            if [ -s "trivy-${{ matrix.variant }}.txt" ]; then
-              head -c 40000 "trivy-${{ matrix.variant }}.txt"
+            if [ -s "trivy-${{ matrix.variant }}-${{ matrix.arch }}.txt" ]; then
+              head -c 40000 "trivy-${{ matrix.variant }}-${{ matrix.arch }}.txt"
             else
               echo "No vulnerabilities at or above the gate."
             fi
@@ -182,9 +210,9 @@ jobs:
           } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Vulnerability gate
-        uses: aquasecurity/trivy-action@v0.36.0
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
         with:
-          image-ref: ci-base-images:pr-${{ matrix.variant }}-${{ github.event.pull_request.number }}
+          image-ref: ${{ env.LOCAL_IMAGE }}
           scanners: vuln
           vuln-type: os,library
           severity: ${{ matrix.scan_severity }}
@@ -199,9 +227,9 @@ jobs:
       - name: Report image size
         if: always()
         run: |
-          SIZE=$(docker image inspect ci-base-images:pr-${{ matrix.variant }}-${{ github.event.pull_request.number }} \
+          SIZE=$(docker image inspect ${{ env.LOCAL_IMAGE }} \
             --format '{{.Size}}')
           SIZE_MB=$((SIZE / 1024 / 1024))
-          echo "### Image Size — ${{ matrix.variant }} (amd64, uncompressed)" >> $GITHUB_STEP_SUMMARY
+          echo "### Image Size — ${{ matrix.variant }} (${{ matrix.arch }}, uncompressed)" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "**${SIZE_MB} MB**" >> $GITHUB_STEP_SUMMARY

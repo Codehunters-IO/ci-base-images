@@ -26,7 +26,10 @@ permissions:
 
 jobs:
   cleanup:
-    uses: Codehunters-IO/ci-templates/.github/workflows/shared-cleanup-packages.yml@main
+    # Pinned, not @main: a reusable workflow resolves at call time, so an
+    # unpinned ref means any push to ci-templates changes what runs here
+    # with packages: write, without a commit in this repository.
+    uses: Codehunters-IO/ci-templates/.github/workflows/shared-cleanup-packages.yml@b6f83bf77264f6933f78ba62be6b84ef0e833959 # v1.2.0
     with:
       # Tagged versions are never candidates, so 1.0.0, latest, graalvm,
       # java-runtime and every sha- tag are safe regardless of this value.
