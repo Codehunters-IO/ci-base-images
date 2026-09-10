@@ -35,7 +35,7 @@ jobs:
     # Pinned, not @main: a reusable workflow resolves at call time, so an
     # unpinned ref means any push to ci-templates changes what runs here
     # with packages: write, without a commit in this repository.
-    uses: Codehunters-IO/ci-templates/.github/workflows/shared-cleanup-packages.yml@cd6b2acf56e91085898d62da5ea6c5820e10f6f6 # v1.3.1
+    uses: Codehunters-IO/ci-templates/.github/workflows/shared-cleanup-packages.yml@63e3e07bf20d22e1368cfcfe03bc9af670f0148d # v1.4.0
     with:
       # Safe regardless of this value: anything a tag can reach, which is the
       # tagged manifest lists and every platform and attestation manifest under
