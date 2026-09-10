@@ -15,7 +15,7 @@ FROM krakend:2.13.4@sha256:93031947cd8e0b438cbb28d53476f46d4e609f69afac294ce2e15
 # Stage 2 — pull the Go toolchain from the official Alpine image (apk Go is
 # typically behind the version used by krakend/builder; matching the exact
 # build-image Go version is required for `-buildmode=plugin` ABI compat).
-FROM golang:1.25.7-alpine@sha256:f6751d823c26342f9506c03797d2527668d095b0a15f1862cddb4d927a7a4ced AS go-src
+FROM golang:1.27.1-alpine@sha256:cf6fca6641884b8433441b2b0652976f975e1d0fdd26d177eaaf8596087f3125 AS go-src
 
 # Stage 3 — final CI image.
 FROM alpine:3.24@sha256:28bd5fe8b56d1bd048e5babf5b10710ebe0bae67db86916198a6eec434943f8b
