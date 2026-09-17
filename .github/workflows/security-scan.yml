@@ -44,9 +44,17 @@ jobs:
             rolling_tag: latest
             tag_suffix: ''
             scan_severity: 'CRITICAL'
+          - variant: jdk25
+            rolling_tag: jdk25
+            tag_suffix: '-jdk25'
+            scan_severity: 'CRITICAL'
           - variant: graalvm
             rolling_tag: graalvm
             tag_suffix: '-graalvm'
+            scan_severity: 'CRITICAL'
+          - variant: graalvm25
+            rolling_tag: graalvm25
+            tag_suffix: '-graalvm25'
             scan_severity: 'CRITICAL'
           - variant: krakend
             rolling_tag: krakend
@@ -59,6 +67,10 @@ jobs:
           - variant: java-runtime
             rolling_tag: java-runtime
             tag_suffix: '-java-runtime'
+            scan_severity: 'CRITICAL,HIGH'
+          - variant: java25-runtime
+            rolling_tag: java25-runtime
+            tag_suffix: '-java25-runtime'
             scan_severity: 'CRITICAL,HIGH'
           - variant: node-runtime
             rolling_tag: node-runtime

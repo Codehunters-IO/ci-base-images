@@ -11,7 +11,7 @@ on:
   workflow_dispatch:
     inputs:
       push_latest:
-        description: 'Tag as :latest (jdk) / :graalvm / :krakend / :node'
+        description: 'Tag as :latest (jdk) / :jdk25 / :graalvm / :graalvm25 / :krakend / :node'
         required: false
         type: boolean
         default: false
@@ -37,8 +37,9 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        variant: [jdk, graalvm, krakend, node,
-                  java-runtime, node-runtime, web-runtime, native-runtime]
+        variant: [jdk, jdk25, graalvm, graalvm25, krakend, node,
+                  java-runtime, java25-runtime, node-runtime, web-runtime,
+                  native-runtime]
         include:
           - variant: jdk
             smoke_kind: ci
@@ -48,6 +49,18 @@ jobs:
             rolling_tag: latest
             cache_scope_prefix: jdk-
             scan_severity: 'CRITICAL'
+          # smoke_variant stays 'jdk': the assertions are the same toolchain,
+          # and the major the image claims is carried by CI_JAVA_MAJOR inside it
+          # rather than passed in from the matrix, so the check cannot be handed
+          # the answer it is meant to verify.
+          - variant: jdk25
+            smoke_kind: ci
+            smoke_variant: jdk
+            context_dir: images/ci/jdk25
+            tag_suffix: '-jdk25'
+            rolling_tag: jdk25
+            cache_scope_prefix: jdk25-
+            scan_severity: 'CRITICAL'
           - variant: graalvm
             smoke_kind: ci
             smoke_variant: graalvm
@@ -55,6 +68,14 @@ jobs:
             tag_suffix: '-graalvm'
             rolling_tag: graalvm
             cache_scope_prefix: graalvm-
+            scan_severity: 'CRITICAL'
+          - variant: graalvm25
+            smoke_kind: ci
+            smoke_variant: graalvm
+            context_dir: images/ci/graalvm25
+            tag_suffix: '-graalvm25'
+            rolling_tag: graalvm25
+            cache_scope_prefix: graalvm25-
             scan_severity: 'CRITICAL'
           - variant: krakend
             smoke_kind: ci
@@ -79,6 +100,14 @@ jobs:
             tag_suffix: '-java-runtime'
             rolling_tag: java-runtime
             cache_scope_prefix: java-runtime-
+            scan_severity: 'CRITICAL,HIGH'
+          - variant: java25-runtime
+            smoke_kind: runtime
+            smoke_variant: java
+            context_dir: images/runtime/java25
+            tag_suffix: '-java25-runtime'
+            rolling_tag: java25-runtime
+            cache_scope_prefix: java25-runtime-
             scan_severity: 'CRITICAL,HIGH'
           - variant: node-runtime
             smoke_kind: runtime

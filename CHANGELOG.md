@@ -7,6 +7,34 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+- **Java 25 published alongside Java 21, as three new variants.**
+  `-jdk25` (Temurin JDK 25 + Gradle), `-graalvm25` (GraalVM CE for JDK 25 with
+  `native-image`) and `-java25-runtime` (Temurin JRE 25, non-root, tini). All
+  three are multi-arch and built from the same commit and semver as the rest,
+  so moving a repository to Java 25 is a suffix change per stage, not a version
+  bump.
+
+  **Java 21 remains the default and is untouched.** The unsuffixed tags —
+  `:latest`, `:vX.Y.Z` — are still JDK 21, so no existing consumer changes.
+
+  Each major lives in its own directory rather than behind an `ARG` over the
+  `FROM`. The `FROM`s are literal precisely so Dependabot can see and update
+  the digests, and `FROM ${JAVA_IMAGE}` would hide both majors from it.
+
+- **Every Java image asserts the major it claims.** The images now carry
+  `CI_JAVA_MAJOR`, and the smoke tests fail if the running JVM disagrees with
+  it. Two majors built from near-identical directories make one specific
+  mistake likely — a `FROM` edited in one copy and a label edited in the other
+  — and `check-pins.sh` cannot catch it, because each file stays internally
+  consistent. Verified in both directions: a 25 image claiming 21 fails, and an
+  image with the variable unset fails rather than passing silently.
+
+- **Java 27 was requested and is not included: it does not exist upstream.**
+  Temurin publishes no 27 image on Docker Hub, early-access included, and
+  GraalVM's `native-image-community` stops at 25. There is no base to build on.
+  Adding it later means copying the `25` directories and their matrix rows.
+
 ### Security
 - **KrakenD CI image bumped to 2.13.11, clearing 39 fixable HIGH advisories.**
   The pinned 2.13.4 vendored `golang.org/x/crypto` v0.49.0, `x/net` v0.52.0 and

@@ -5,14 +5,20 @@
 # sh, not bash: these images ship no bash, which is the point of them.
 #
 # RUNTIME_VARIANT selects the assertions:
-#   java  — Temurin JRE 21, no javac
+#   java  — Temurin JRE, no javac
 #   node  — Node 20, no compiler
 #   web   — nginx, config valid, listens 8080
 #
 # The `native` variant has no shell and is asserted from the host instead.
+#
+# CI_JAVA_MAJOR, on the java variant, is the major the image claims to carry.
+# Two majors are published side by side from near-identical directories, and a
+# FROM edited in one with the label edited in the other leaves both files
+# internally consistent — so the running JVM is asked rather than trusted.
 set -eu
 
 VARIANT="${RUNTIME_VARIANT:-java}"
+CI_JAVA_MAJOR="${CI_JAVA_MAJOR:-}"
 echo "=== Runtime smoke test (variant=${VARIANT}) ==="
 
 fail=0
@@ -52,6 +58,19 @@ case "${VARIANT}" in
         refute "jar"    command -v jar
         refute "gradle" command -v gradle
         check  "tini"   sh -c '[ -x /sbin/tini ]'
+        # JAVA_TOOL_OPTIONS makes the JVM print a "Picked up" line before the
+        # banner, so the version line is matched rather than taken as the first.
+        got=$(java -version 2>&1 | sed -n 's/.*version "\([0-9]*\).*/\1/p' | sed -n 1p)
+        if [ -z "${CI_JAVA_MAJOR}" ]; then
+            printf "  [FAIL] java major: CI_JAVA_MAJOR is unset in this image\n"
+            fail=1
+        elif [ "${got}" = "${CI_JAVA_MAJOR}" ]; then
+            printf "  [OK]   java major %s matches CI_JAVA_MAJOR\n" "${got}"
+        else
+            printf "  [FAIL] java major: image claims %s, JVM reports %s\n" \
+                "${CI_JAVA_MAJOR}" "${got:-unknown}"
+            fail=1
+        fi
         java -version 2>&1 | grep -v 'Picked up' | sed -n '1s/^/  /p'
         ;;
     node)

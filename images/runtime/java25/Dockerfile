@@ -1,9 +1,13 @@
 # syntax=docker/dockerfile:1.7
-# ci-base-images (Java runtime) — base for codehunters-ms-* application images.
-# Contents: Temurin JRE 21 (Alpine/musl), tini, CA certificates, tzdata.
-# Usage: FROM ghcr.io/codehunters-io/ci-base-images:X.Y.Z-java-runtime
+# ci-base-images (Java 25 runtime) — base for codehunters-ms-* application images
+# that have moved to the JDK 25 LTS.
+# Contents: Temurin JRE 25 (Alpine/musl), tini, CA certificates, tzdata.
+# Usage: FROM ghcr.io/codehunters-io/ci-base-images:X.Y.Z-java25-runtime
+#
+# A second directory rather than an ARG over the FROM in images/runtime/java: see
+# the note in images/ci/jdk25/Dockerfile for why the FROM stays literal.
 
-FROM eclipse-temurin:21-jre-alpine@sha256:974b08960c5d96694c780e65b2d5705268ab1e1ca1a0dd0caf4ba6c3fe34d699
+FROM eclipse-temurin:25-jre-alpine@sha256:3137541deb3cac6626b5d9a4a2187bc0d6a34312f858bd2c67dd01e732e6b682
 
 ARG APP_UID=10001
 ARG APP_GID=10001
@@ -28,7 +32,7 @@ RUN set -eux; \
 ENV LANG=C.UTF-8 \
     LC_ALL=C.UTF-8 \
     TZ=UTC \
-    CI_JAVA_MAJOR=21 \
+    CI_JAVA_MAJOR=25 \
     JAVA_TOOL_OPTIONS="-XX:MaxRAMPercentage=75.0 -XX:+ExitOnOutOfMemoryError"
 
 WORKDIR /app
@@ -38,14 +42,14 @@ USER app
 # reap orphaned children, and anything the app forks would accumulate as zombies.
 ENTRYPOINT ["/sbin/tini", "--"]
 
-LABEL org.opencontainers.image.title="ci-base-images (java runtime)" \
-      org.opencontainers.image.description="Runtime base for codehunters-ms-* Java services (Temurin JRE 21, non-root, tini)" \
+LABEL org.opencontainers.image.title="ci-base-images (java 25 runtime)" \
+      org.opencontainers.image.description="Runtime base for codehunters-ms-* Java services (Temurin JRE 25, non-root, tini)" \
       org.opencontainers.image.source="https://github.com/Codehunters-IO/ci-base-images" \
       org.opencontainers.image.vendor="codehunters" \
       org.opencontainers.image.licenses="MIT" \
       io.codehunters.usage="runtime" \
-      io.codehunters.variant="java-runtime" \
-      io.codehunters.contents.java="21-jre" \
+      io.codehunters.variant="java25-runtime" \
+      io.codehunters.contents.java="25-jre" \
       io.codehunters.contents.libc="musl" \
-      io.codehunters.contents.base="eclipse-temurin:21-jre-alpine" \
+      io.codehunters.contents.base="eclipse-temurin:25-jre-alpine" \
       io.codehunters.runs-as="app"
