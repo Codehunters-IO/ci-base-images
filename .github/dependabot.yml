@@ -30,6 +30,15 @@ updates:
       # bytes that get signed and anchored on a chain.
       - dependency-name: "node"
         update-types: ["version-update:semver-major"]
+      # Go is not an independent dependency here: images/ci/krakend compiles
+      # gateway plugins with `-buildmode=plugin`, and a plugin only loads into a
+      # binary built by the same Go toolchain. The version that matters is the
+      # one krakend:${KRAKEND_VERSION} was built with, which Dependabot cannot
+      # see, so every standalone bump it proposes is wrong by construction (it
+      # opened 1.25.7 -> 1.27.1 against a KrakenD built on 1.26.8). GO_VERSION
+      # moves by hand when KRAKEND_VERSION moves — see images/ci/krakend for how
+      # to read the value off the binary.
+      - dependency-name: "golang"
       # Hard coupling, not policy: the native runtime stages libz out of this
       # image into gcr.io/distroless/base-debian12. Debian 13 here would pair a
       # libz built against one glibc with a userland built against another.

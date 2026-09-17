@@ -6,8 +6,8 @@
 # Docker CLI + buildx, GNU userland.
 # Usage: jobs.<id>.container: ghcr.io/codehunters/ci-base-images:vX.Y.Z-krakend
 
-ARG KRAKEND_VERSION=2.13.4
-ARG GO_VERSION=1.25.7
+ARG KRAKEND_VERSION=2.13.11
+ARG GO_VERSION=1.26.8
 
 # Stage 1 — pull the KrakenD CLI binary from the official image.
 FROM krakend:2.13.11@sha256:87453dd2f93d42d5b8d0c4dd82b68427ee28fb061c9d51571990383cac7fed62 AS krakend-src
@@ -15,7 +15,17 @@ FROM krakend:2.13.11@sha256:87453dd2f93d42d5b8d0c4dd82b68427ee28fb061c9d51571990
 # Stage 2 — pull the Go toolchain from the official Alpine image (apk Go is
 # typically behind the version used by krakend/builder; matching the exact
 # build-image Go version is required for `-buildmode=plugin` ABI compat).
-FROM golang:1.25.7-alpine@sha256:f6751d823c26342f9506c03797d2527668d095b0a15f1862cddb4d927a7a4ced AS go-src
+#
+# GO_VERSION is not a free choice: it must equal the toolchain the pinned
+# KrakenD release was built with, or plugins refuse to load at runtime. Read it
+# off the binary rather than guessing:
+#
+#   id=$(docker create krakend:2.13.11)
+#   docker cp "$id:/usr/bin/krakend" /tmp/krakend && docker rm -f "$id"
+#   go version -m /tmp/krakend | head -1    # -> go1.26.8
+#
+# Bump KRAKEND_VERSION and GO_VERSION together, never apart.
+FROM golang:1.26.8-alpine@sha256:ce864e7223ac17b1775e6fd0b4c0db580c2eb50e7953a427916379e4b92a1628 AS go-src
 
 # Stage 3 — final CI image.
 FROM alpine:3.24@sha256:28bd5fe8b56d1bd048e5babf5b10710ebe0bae67db86916198a6eec434943f8b
@@ -24,8 +34,8 @@ FROM alpine:3.24@sha256:28bd5fe8b56d1bd048e5babf5b10710ebe0bae67db86916198a6eec4
 # for an ARG declared without one. `ARG TARGETARCH=amd64` shadows it, and the
 # arm64 build then downloads x86_64 artefacts.
 ARG TARGETARCH
-ARG KRAKEND_VERSION=2.13.4
-ARG GO_VERSION=1.25.7
+ARG KRAKEND_VERSION=2.13.11
+ARG GO_VERSION=1.26.8
 # AWS_CLI_VERSION only applies if AWS_CLI_FROM_BUNDLE=1 forces the glibc bundle;
 # the musl path installs aws-cli from the Alpine community repo and ignores it.
 # The pin is the last release that ran under gcompat, kept for that escape hatch.
