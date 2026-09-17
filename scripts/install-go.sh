@@ -4,7 +4,7 @@
 # The Go toolchain is COPYed at build time from the official
 # `golang:${GO_VERSION}-alpine` image via a multi-stage stage in the
 # Dockerfile. Alpine ships older Go in apk; copying matches the exact version
-# used by `krakend/builder` (1.25.x) to guarantee `-buildmode=plugin` ABI
+# used by `krakend/builder` (1.26.x) to guarantee `-buildmode=plugin` ABI
 # compatibility with `krakend/krakend` runtime images.
 #
 # Also verifies build-time deps required for Go plugins on Alpine:

@@ -7,6 +7,15 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Security
+- **KrakenD CI image bumped to 2.13.11, clearing 39 fixable HIGH advisories.**
+  The pinned 2.13.4 vendored `golang.org/x/crypto` v0.49.0, `x/net` v0.52.0 and
+  a go1.25.9 stdlib, all of which carry patched CVEs. 2.13.11 ships x/crypto
+  v0.56.0 on a go1.26.8 stdlib and scans clean at HIGH/CRITICAL with
+  `--ignore-unfixed`. `CVE-2026-56854` is therefore dropped from
+  `.trivyignore.yaml`: the exception was written when no KrakenD release linked
+  a fixed x/crypto, and one now does.
+
 ### Fixed
 - **Every image reference in the README was unusable.** The org was
   `ghcr.io/codehunters/...`, but GHCR lowercases `github.repository`, so the
@@ -16,6 +25,12 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   settings URL, which pointed at `/users/codehunters` for what is an org.
 
 ### Changed
+- **`GO_VERSION` is now derived from the KrakenD release, not bumped on its
+  own.** Go plugins must be compiled with the exact toolchain the gateway
+  binary was built with, so the Go pin moves to 1.26.8 alongside KrakenD
+  2.13.11 — read off the binary with `go version -m`, and documented as such in
+  the Dockerfile. A standalone Go bump (Dependabot proposed 1.27.1) produces
+  `.so` files the runtime refuses to load, with nothing in CI to catch it.
 - **Dependabot no longer proposes major bumps for the pinned runtimes.** The
   restructure into `images/ci/` and `images/runtime/` widened its coverage from
   three directories to eight, and it immediately opened majors for
