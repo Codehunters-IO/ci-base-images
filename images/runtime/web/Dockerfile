@@ -45,6 +45,6 @@ LABEL org.opencontainers.image.title="ci-base-images (web runtime)" \
       io.codehunters.usage="runtime" \
       io.codehunters.variant="web-runtime" \
       io.codehunters.contents.libc="musl" \
-      io.codehunters.contents.base="nginx:1.31.5-alpine" \
+      io.codehunters.contents.base="nginx:1.31.6-alpine" \
       io.codehunters.runs-as="nginx" \
       io.codehunters.listen-port="8080"
