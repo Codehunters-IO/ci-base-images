@@ -23,7 +23,10 @@ updates:
       - dependency-name: "eclipse-temurin"
         update-types: ["version-update:semver-major"]
       # Same, and it has to stay in step with the JDK the CI image builds against.
-      - dependency-name: "ghcr.io/graalvm/native-image-community"
+      # The name carries no registry host: Dependabot strips it, so the
+      # "ghcr.io/graalvm/..." spelling this rule used until now matched nothing
+      # and let the 21 -> 24 bump through (PR #22, open from 2026-09-03).
+      - dependency-name: "graalvm/native-image-community"
         update-types: ["version-update:semver-major"]
       # Node 20 is deliberate: the consumers pin `engines: ">=20 <21"` because
       # their Hardhat toolchain and exactly-pinned crypto dependencies decide
