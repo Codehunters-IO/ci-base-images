@@ -1,11 +1,14 @@
 # syntax=docker/dockerfile:1.7
-# ci-base-images (GraalVM variant) — pre-baked CI image for
-# codehunters-ms-* native-image pipelines.
-# Contents: GraalVM CE for JDK 21 (Oracle Linux 9 / glibc) with native-image,
+# ci-base-images (GraalVM 25 variant) — pre-baked CI image for codehunters-ms-*
+# native-image pipelines that have moved to the JDK 25 LTS.
+# Contents: GraalVM CE for JDK 25 (Oracle Linux 9 / glibc) with native-image,
 # Gradle, AWS CLI v2, Docker CLI + buildx.
-# Usage: jobs.<id>.container: ghcr.io/codehunters/ci-base-images:vX.Y.Z-graalvm
+# Usage: jobs.<id>.container: ghcr.io/codehunters-io/ci-base-images:vX.Y.Z-graalvm25
+#
+# A second directory rather than an ARG over the FROM in images/ci/graalvm: see
+# the note in images/ci/jdk25/Dockerfile for why the FROM stays literal.
 
-FROM ghcr.io/graalvm/native-image-community:21@sha256:faed0fd6809b138254bdd6c7046e56894f4d9566ecbc7b0952aab43e65e16e0e
+FROM ghcr.io/graalvm/native-image-community:25@sha256:0d936f32bb8acb5bc60c41b33e05f064d7a6aaf36b726538296c54949bd4a3c0
 
 # No default: BuildKit fills TARGETARCH with the platform being built, but only
 # for an ARG declared without one. `ARG TARGETARCH=amd64` shadows it, and the
@@ -22,7 +25,7 @@ ENV LANG=C.UTF-8 \
     GRADLE_HOME=/opt/gradle/gradle-${GRADLE_VERSION} \
     GRADLE_USER_HOME=/root/.gradle \
     CI_VARIANT=graalvm \
-    CI_JAVA_MAJOR=21 \
+    CI_JAVA_MAJOR=25 \
     PATH=${JAVA_HOME}/bin:/opt/gradle/gradle-${GRADLE_VERSION}/bin:/usr/local/bin:/usr/bin:/bin:/sbin:/usr/sbin
 
 COPY scripts/ /usr/local/bin/
@@ -39,16 +42,16 @@ RUN set -eux; \
     /usr/local/bin/smoke-test.sh
 
 LABEL org.opencontainers.image.title="ci-base-images" \
-      org.opencontainers.image.description="CI base image for codehunters-ms-* native-image pipelines (GraalVM CE for JDK 21, Gradle, AWS CLI v2, Docker CLI)" \
-      org.opencontainers.image.source="https://github.com/codehunters/ci-base-images" \
+      org.opencontainers.image.description="CI base image for codehunters-ms-* native-image pipelines (GraalVM CE for JDK 25, Gradle, AWS CLI v2, Docker CLI)" \
+      org.opencontainers.image.source="https://github.com/Codehunters-IO/ci-base-images" \
       org.opencontainers.image.vendor="codehunters" \
       org.opencontainers.image.licenses="MIT" \
       io.codehunters.usage="ci-only" \
-      io.codehunters.variant="graalvm" \
-      io.codehunters.contents.java="graalvm-ce-21" \
+      io.codehunters.variant="graalvm25" \
+      io.codehunters.contents.java="graalvm-ce-25" \
       io.codehunters.contents.libc="glibc" \
-      io.codehunters.contents.base="ghcr.io/graalvm/native-image-community:21" \
-      io.codehunters.contents.native-image="21" \
+      io.codehunters.contents.base="ghcr.io/graalvm/native-image-community:25" \
+      io.codehunters.contents.native-image="25" \
       io.codehunters.contents.gradle="${GRADLE_VERSION}"
 
 WORKDIR /workspace

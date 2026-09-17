@@ -1,8 +1,9 @@
 # Weekly pruning of untagged versions from ghcr.io/codehunters-io/ci-base-images.
 #
-# This package accumulates faster than most: eight variants, each pushed as a
+# This package accumulates faster than most: eleven variants, each pushed as a
 # multi-arch manifest with an SBOM and provenance, means one publish leaves
-# several unreferenced manifests behind. 230 versions at the time of writing.
+# several unreferenced manifests behind. 230 versions when this was written,
+# against eight variants; the Java 25 family makes each publish larger still.
 #
 # Most untagged versions here are NOT garbage. 192 of the 222 are platform or
 # attestation manifests belonging to a tagged image - untagged because only the

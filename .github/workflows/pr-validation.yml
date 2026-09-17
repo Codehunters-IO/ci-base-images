@@ -22,14 +22,20 @@ jobs:
         include:
           - variant: jdk
             dockerfile: images/ci/jdk/Dockerfile
+          - variant: jdk25
+            dockerfile: images/ci/jdk25/Dockerfile
           - variant: graalvm
             dockerfile: images/ci/graalvm/Dockerfile
+          - variant: graalvm25
+            dockerfile: images/ci/graalvm25/Dockerfile
           - variant: krakend
             dockerfile: images/ci/krakend/Dockerfile
           - variant: node
             dockerfile: images/ci/node/Dockerfile
           - variant: java-runtime
             dockerfile: images/runtime/java/Dockerfile
+          - variant: java25-runtime
+            dockerfile: images/runtime/java25/Dockerfile
           - variant: node-runtime
             dockerfile: images/runtime/node/Dockerfile
           - variant: web-runtime
@@ -83,8 +89,9 @@ jobs:
         # Native arm64 runners rather than QEMU: the repository is public, so
         # they cost nothing, and a QEMU arm64 build of the GraalVM image takes
         # long enough that people stop waiting for it.
-        variant: [jdk, graalvm, krakend, node,
-                  java-runtime, node-runtime, web-runtime, native-runtime]
+        variant: [jdk, jdk25, graalvm, graalvm25, krakend, node,
+                  java-runtime, java25-runtime, node-runtime, web-runtime,
+                  native-runtime]
         arch: [amd64, arm64]
         include:
           - arch: amd64
@@ -99,11 +106,27 @@ jobs:
             context_dir: images/ci/jdk
             cache_scope_prefix: jdk-pr-
             scan_severity: 'CRITICAL'
+          # smoke_variant stays 'jdk': the assertions are the same toolchain,
+          # and the major the image claims is carried by CI_JAVA_MAJOR inside it
+          # rather than passed in from the matrix, so the check cannot be handed
+          # the answer it is meant to verify.
+          - variant: jdk25
+            smoke_kind: ci
+            smoke_variant: jdk
+            context_dir: images/ci/jdk25
+            cache_scope_prefix: jdk25-pr-
+            scan_severity: 'CRITICAL'
           - variant: graalvm
             smoke_kind: ci
             smoke_variant: graalvm
             context_dir: images/ci/graalvm
             cache_scope_prefix: graalvm-pr-
+            scan_severity: 'CRITICAL'
+          - variant: graalvm25
+            smoke_kind: ci
+            smoke_variant: graalvm
+            context_dir: images/ci/graalvm25
+            cache_scope_prefix: graalvm25-pr-
             scan_severity: 'CRITICAL'
           - variant: krakend
             smoke_kind: ci
@@ -122,6 +145,12 @@ jobs:
             smoke_variant: java
             context_dir: images/runtime/java
             cache_scope_prefix: java-runtime-pr-
+            scan_severity: 'CRITICAL,HIGH'
+          - variant: java25-runtime
+            smoke_kind: runtime
+            smoke_variant: java
+            context_dir: images/runtime/java25
+            cache_scope_prefix: java25-runtime-pr-
             scan_severity: 'CRITICAL,HIGH'
           - variant: node-runtime
             smoke_kind: runtime

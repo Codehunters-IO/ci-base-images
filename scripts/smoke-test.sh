@@ -3,13 +3,20 @@
 # Invoked at image build time and as a CI gate before pushing to GHCR.
 #
 # CI_VARIANT controls variant-specific assertions:
-#   jdk     (default) — Temurin JDK 21 + Gradle + AWS CLI + Docker
-#   graalvm           — GraalVM CE JDK 21 + native-image (everything in jdk +)
+#   jdk     (default) — Temurin JDK + Gradle + AWS CLI + Docker
+#   graalvm           — GraalVM CE + native-image (everything in jdk +)
 #   krakend           — KrakenD CLI + Go toolchain + make (no JDK/Gradle)
 #   node              — Node 20 + npm + corepack + node-gyp deps (no JDK/Gradle)
+#
+# CI_JAVA_MAJOR, on the Java variants, is the major the image claims to carry.
+# The repository now publishes two of them side by side, from directories that
+# are near-identical copies; a FROM edited in one and a label edited in the
+# other is the likeliest way this breaks, and check-pins.sh cannot see it
+# because both files stay internally consistent. So the running JVM is asked.
 set -euo pipefail
 
 CI_VARIANT="${CI_VARIANT:-jdk}"
+CI_JAVA_MAJOR="${CI_JAVA_MAJOR:-}"
 
 echo "=== Smoke test: ci-base-images (variant=${CI_VARIANT}) ==="
 
@@ -20,6 +27,25 @@ check() {
         printf "  [OK]   %s\n" "${label}"
     else
         printf "  [FAIL] %s\n" "${label}"
+        fail=1
+    fi
+}
+
+# `java -version` writes to stderr and reports the major as the leading
+# component of the version string: "25.0.1" on a release, "25-ea" on an EA
+# build, and a bare "25" is legal too. The version line is matched wherever it
+# lands rather than taken as line 1 — a set JAVA_TOOL_OPTIONS makes the JVM
+# print a "Picked up" line ahead of the banner.
+check_java_major() {
+    local want="$1" got
+    got=$(java -version 2>&1 | sed -n 's/.*version "\([0-9]*\).*/\1/p' | sed -n 1p)
+    if [ -z "${want}" ]; then
+        printf "  [FAIL] java major: CI_JAVA_MAJOR is unset in this image\n"
+        fail=1
+    elif [ "${got}" = "${want}" ]; then
+        printf "  [OK]   java major %s matches CI_JAVA_MAJOR\n" "${got}"
+    else
+        printf "  [FAIL] java major: image claims %s, JVM reports %s\n" "${want}" "${got:-unknown}"
         fail=1
     fi
 }
@@ -45,12 +71,14 @@ case "${CI_VARIANT}" in
         check "java"   java -version
         check "javac"  javac -version
         check "gradle" gradle --version
+        check_java_major "${CI_JAVA_MAJOR}"
         ;;
     graalvm)
         check "java"         java -version
         check "javac"        javac -version
         check "gradle"       gradle --version
         check "native-image" native-image --version
+        check_java_major "${CI_JAVA_MAJOR}"
         ;;
     krakend)
         check "krakend" krakend version

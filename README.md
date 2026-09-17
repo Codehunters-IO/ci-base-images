@@ -5,15 +5,23 @@ Pre-baked CI base images for `codehunters-ms-*` Java microservice and
 (`setup-java`, `setup-gradle`, `setup-node`, AWS CLI download) with a single
 `container:` directive in GitHub Actions.
 
-Eight variants are published to `ghcr.io/codehunters-io/ci-base-images` —
-four for CI, four for runtime:
+Eleven variants are published to `ghcr.io/codehunters-io/ci-base-images` —
+six for CI, five for runtime:
 
-| Variant     | Tag suffix    | Base image                              | libc  | Approx size | Use case                                  |
-|-------------|---------------|-----------------------------------------|-------|-------------|-------------------------------------------|
-| **JDK**     | _(none)_      | `eclipse-temurin:21-jdk-alpine`         | musl  | ~450 MB     | `codehunters-ms-*` build/test/deploy (default)  |
-| **GraalVM** | `-graalvm`    | `ghcr.io/graalvm/native-image-community:21` | glibc | ~1.1 GB     | `nativeCompile` / `native-image` jobs     |
-| **KrakenD** | `-krakend`    | `alpine:3.21` + `krakend` + `golang`    | musl  | ~700 MB     | `codehunters-gw-krakend` gateway pipelines      |
-| **Node**    | `-node`       | `node:20.20.2-alpine`                   | musl  | ~210 MB     | Hardhat/Solidity + TypeScript SDK pipelines |
+| Variant         | Tag suffix    | Base image                              | libc  | Approx size | Use case                                  |
+|-----------------|---------------|-----------------------------------------|-------|-------------|-------------------------------------------|
+| **JDK**         | _(none)_      | `eclipse-temurin:21-jdk-alpine`         | musl  | ~450 MB     | `codehunters-ms-*` build/test/deploy (default)  |
+| **JDK 25**      | `-jdk25`      | `eclipse-temurin:25-jdk-alpine`         | musl  | ~450 MB     | the same, for services on the JDK 25 LTS  |
+| **GraalVM**     | `-graalvm`    | `ghcr.io/graalvm/native-image-community:21` | glibc | ~1.1 GB     | `nativeCompile` / `native-image` jobs     |
+| **GraalVM 25**  | `-graalvm25`  | `ghcr.io/graalvm/native-image-community:25` | glibc | ~1.1 GB     | the same, for services on the JDK 25 LTS  |
+| **KrakenD**     | `-krakend`    | `alpine:3.21` + `krakend` + `golang`    | musl  | ~700 MB     | `codehunters-gw-krakend` gateway pipelines      |
+| **Node**        | `-node`       | `node:20.20.2-alpine`                   | musl  | ~210 MB     | Hardhat/Solidity + TypeScript SDK pipelines |
+
+> **Java 21 is still the default.** The unsuffixed tags — `:latest`, `:vX.Y.Z` —
+> remain JDK 21, and nothing pinning them changes. Java 25 is opt-in per
+> repository by moving to the `-jdk25` / `-java25-runtime` / `-graalvm25`
+> suffix. Both majors are built from the same commit and share the same semver,
+> so a consumer picks the major without picking a different release.
 
 > **Two families, opposite rules.** The `ci/` images run as `root` and carry a
 > build toolchain — they exist to run pipeline steps and must **never** be a
@@ -30,7 +38,7 @@ Architectures for every variant: `linux/amd64`, `linux/arm64` (multi-arch manife
 |---|---|---|
 | Purpose | run pipeline steps | be the base of your app image |
 | User | `root` | non-root, fixed uid |
-| Java | JDK 21 + Gradle | JRE 21, or distroless for native binaries |
+| Java | JDK 21 or 25 + Gradle | JRE 21 or 25, or distroless for native binaries |
 | Node | + `build-base`, `python3` | runtime only, no compiler |
 | Also carries | Docker CLI, AWS CLI, git, gnupg | none of it |
 | Size | 210 MB – 1.1 GB | 60 – 190 MB |
@@ -46,6 +54,7 @@ them. Not acceptable in production.
 | Variant | Tag suffix | Base | Runs as | For |
 |---|---|---|---|---|
 | Java | `-java-runtime` | `eclipse-temurin:21-jre-alpine` | uid 10001 | Spring Boot jars |
+| Java 25 | `-java25-runtime` | `eclipse-temurin:25-jre-alpine` | uid 10001 | Spring Boot jars on the JDK 25 LTS |
 | Node | `-node-runtime` | `node:20.20.2-alpine` | uid 1000 (`node`) | Node/NestJS services |
 | Web | `-web-runtime` | `nginx:alpine` | uid 101 (`nginx`), port 8080 | React/Vite static builds |
 | Native | `-native-runtime` | `gcr.io/distroless/base-debian12` | uid 65532 | GraalVM `nativeCompile` binaries |
@@ -99,20 +108,28 @@ Common to **all** variants:
 
 Variant-specific tooling:
 
-| Tool / runtime    | JDK | GraalVM | KrakenD | Node | Source                           |
-|-------------------|:---:|:-------:|:-------:|:----:|----------------------------------|
-| Temurin JDK 21    | ✅  | ❌      | ❌      | ❌   | `eclipse-temurin:21-jdk-alpine`  |
-| GraalVM CE JDK 21 | ❌  | ✅      | ❌      | ❌   | `ghcr.io/graalvm/native-image-community:21` |
-| `native-image`    | ❌  | ✅      | ❌      | ❌   | preinstalled in GraalVM 21+      |
-| Gradle CLI 9.7.1  | ✅  | ✅      | ❌      | ❌   | services.gradle.org (SHA-256 pinned) |
-| KrakenD CLI       | ❌  | ❌      | ✅      | ❌   | `krakend:${KRAKEND_VERSION}` (multi-stage COPY) |
-| Go toolchain      | ❌  | ❌      | ✅      | ❌   | `golang:${GO_VERSION}-alpine` (multi-stage COPY) |
-| `build-base`      | ❌  | ❌      | ✅      | ✅   | apk (Go plugins on KrakenD; node-gyp on Node) |
-| `binutils-gold` (for `go build -buildmode=plugin`) | ❌ | ❌ | ✅ | ❌ | apk |
-| `make`            | ❌  | ❌      | ✅      | ✅   | apk                              |
-| Node.js 20 + npm  | ❌  | ❌      | ❌      | ✅   | `node:${NODE_VERSION}-alpine`    |
-| corepack (pnpm/yarn on demand) | ❌ | ❌ | ❌ | ✅ | bundled with Node 20, enabled at build |
-| `python3` (node-gyp) | ❌ | ❌     | ❌      | ✅   | apk                              |
+| Tool / runtime    | JDK | JDK 25 | GraalVM | GraalVM 25 | KrakenD | Node | Source                           |
+|-------------------|:---:|:------:|:-------:|:----------:|:-------:|:----:|----------------------------------|
+| Temurin JDK 21    | ✅  | ❌     | ❌      | ❌         | ❌      | ❌   | `eclipse-temurin:21-jdk-alpine`  |
+| Temurin JDK 25    | ❌  | ✅     | ❌      | ❌         | ❌      | ❌   | `eclipse-temurin:25-jdk-alpine`  |
+| GraalVM CE JDK 21 | ❌  | ❌     | ✅      | ❌         | ❌      | ❌   | `ghcr.io/graalvm/native-image-community:21` |
+| GraalVM CE JDK 25 | ❌  | ❌     | ❌      | ✅         | ❌      | ❌   | `ghcr.io/graalvm/native-image-community:25` |
+| `native-image`    | ❌  | ❌     | ✅      | ✅         | ❌      | ❌   | preinstalled in GraalVM 21+      |
+| Gradle CLI 9.7.1  | ✅  | ✅     | ✅      | ✅         | ❌      | ❌   | services.gradle.org (SHA-256 pinned) |
+| KrakenD CLI       | ❌  | ❌     | ❌      | ❌         | ✅      | ❌   | `krakend:${KRAKEND_VERSION}` (multi-stage COPY) |
+| Go toolchain      | ❌  | ❌     | ❌      | ❌         | ✅      | ❌   | `golang:${GO_VERSION}-alpine` (multi-stage COPY) |
+| `build-base`      | ❌  | ❌     | ❌      | ❌         | ✅      | ✅   | apk (Go plugins on KrakenD; node-gyp on Node) |
+| `binutils-gold` (for `go build -buildmode=plugin`) | ❌ | ❌ | ❌ | ❌ | ✅ | ❌ | apk |
+| `make`            | ❌  | ❌     | ❌      | ❌         | ✅      | ✅   | apk                              |
+| Node.js 20 + npm  | ❌  | ❌     | ❌      | ❌         | ❌      | ✅   | `node:${NODE_VERSION}-alpine`    |
+| corepack (pnpm/yarn on demand) | ❌ | ❌ | ❌ | ❌ | ❌ | ✅ | bundled with Node 20, enabled at build |
+| `python3` (node-gyp) | ❌ | ❌  | ❌     | ❌         | ❌      | ✅   | apk                              |
+
+Every Java image also carries `CI_JAVA_MAJOR` — the major it claims — and its
+smoke test asserts the running JVM reports that same major. Two majors are
+published from near-identical directories, and a `FROM` edited in one with the
+label edited in the other leaves both files internally consistent, so
+`check-pins.sh` cannot see it. The JVM is asked instead.
 
 ---
 
@@ -127,6 +144,20 @@ JDK variant (default — no suffix):
 | `latest`             | Push to `main`                              | Development pipelines     |
 | `sha-<short>`        | Every build                                 | Reproducible debugging    |
 | `main`               | Push to `main`                              | Bleeding edge             |
+
+JDK 25 variant (`-jdk25` suffix) — identical tag shape, `jdk25` in place of
+`latest` as the rolling tag:
+
+| Tag                     | Trigger                                    | Use case                          |
+|-------------------------|--------------------------------------------|-----------------------------------|
+| `vX.Y.Z-jdk25`          | Git tag `v*`                                | Production pipelines on JDK 25 (PIN) |
+| `vX.Y-jdk25`, `vX-jdk25`| Git tag `v*`                                | Tolerant rolling updates          |
+| `jdk25`                 | Push to `main`                              | Development pipelines on JDK 25   |
+| `sha-<short>-jdk25`     | Every build                                 | Reproducible debugging            |
+| `main-jdk25`            | Push to `main`                              | Bleeding edge                     |
+
+The `-graalvm25` and `-java25-runtime` variants follow the same shape, with
+`graalvm25` and `java25-runtime` as their rolling tags.
 
 GraalVM variant (`-graalvm` suffix):
 
@@ -160,10 +191,11 @@ Node variant (`-node` suffix):
 
 **Production rule:** pin a semver tag (e.g. `:1.1.0`, `:1.1.0-graalvm`,
 `:1.1.0-java-runtime`). Never a rolling tag — `:latest`, `:graalvm`,
-`:node`, `:java-runtime` — in release or prod paths. All eight variants are
+`:node`, `:java-runtime` — in release or prod paths. All eleven variants are
 built from the same commit and share the same semver: pick the variant by
-suffix, the version by
-number.
+suffix, the version by number. That includes the Java major — `:1.1.0` and
+`:1.1.0-jdk25` are the same release, built from the same commit, differing
+only in the JDK they carry.
 
 ---
 
@@ -189,6 +221,28 @@ jobs:
 
 `actions/setup-java@v5` and `gradle/actions/setup-gradle@v4` are dropped — the
 image already has Temurin 21 and Gradle 9.7.1 on `$PATH`.
+
+### Moving a repository to Java 25
+
+Three tags change, and nothing else. The version stays the same — both majors
+are built from the same commit — so this is one suffix per stage, not a version
+bump:
+
+| Stage        | From                  | To                            |
+|--------------|-----------------------|-------------------------------|
+| build / test | `:1.1.0`              | `:1.1.0-jdk25`                |
+| `nativeCompile` | `:1.1.0-graalvm`   | `:1.1.0-graalvm25`            |
+| app image    | `:1.1.0-java-runtime` | `:1.1.0-java25-runtime`       |
+
+```yaml
+    container:
+      image: ghcr.io/codehunters-io/ci-base-images:1.1.0-jdk25
+```
+
+Move the build stage and the runtime stage together: a jar compiled with
+`--release 25` will not start on the JRE 21 runtime image, and the failure
+surfaces at container start rather than at build. The JDK 21 variants are not
+deprecated and are not going anywhere — the unsuffixed tags stay on 21.
 
 ### GraalVM variant (native-image)
 
@@ -632,11 +686,12 @@ git push origin v1.1.0
 The git tag carries the `v`; the published image tags do not. `docker/metadata-action`
 strips it, so `v1.1.0` becomes `:1.1.0`.
 
-The `build-publish.yml` workflow picks up the tag and publishes **all eight
-variants** at the same semver — `:1.1.0`, `:1.1.0-graalvm`, `:1.1.0-krakend`,
-`:1.1.0-node`, `:1.1.0-java-runtime`, `:1.1.0-node-runtime`,
-`:1.1.0-web-runtime`, `:1.1.0-native-runtime` — plus the matching `:1.1` and
-`:1` tags for each, and `:sha-<short>` per variant.
+The `build-publish.yml` workflow picks up the tag and publishes **all eleven
+variants** at the same semver — `:1.1.0`, `:1.1.0-jdk25`, `:1.1.0-graalvm`,
+`:1.1.0-graalvm25`, `:1.1.0-krakend`, `:1.1.0-node`, `:1.1.0-java-runtime`,
+`:1.1.0-java25-runtime`, `:1.1.0-node-runtime`, `:1.1.0-web-runtime`,
+`:1.1.0-native-runtime` — plus the matching `:1.1` and `:1` tags for each, and
+`:sha-<short>` per variant.
 
 Rolling tags are **not** updated on tag pushes —
 only on `main` pushes.
@@ -645,12 +700,13 @@ only on `main` pushes.
 
 | Change                                                  | Bump  |
 |---------------------------------------------------------|-------|
-| JDK major upgrade (21 → 25)                             | major |
+| Moving an existing variant to a new JDK major           | major |
 | Gradle major upgrade (9.x → 10.x)                       | major |
 | KrakenD major upgrade (2.x → 3.x)                       | major |
 | Go major upgrade (forced by KrakenD runtime ABI bump)   | major |
 | Removing a pre-installed tool from any variant          | major |
 | Switching any variant's base image family               | major |
+| Adding a JDK major as a NEW variant, existing tags unchanged | minor |
 | Adding a pre-installed tool                             | minor |
 | Gradle / AWS CLI / KrakenD / Go minor/patch upgrades    | minor |
 | Internal script refactor, base image patch refresh      | patch |

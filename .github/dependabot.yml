@@ -3,10 +3,13 @@ updates:
   - package-ecosystem: "docker"
     directories:
       - "/images/ci/jdk"
+      - "/images/ci/jdk25"
       - "/images/ci/graalvm"
+      - "/images/ci/graalvm25"
       - "/images/ci/krakend"
       - "/images/ci/node"
       - "/images/runtime/java"
+      - "/images/runtime/java25"
       - "/images/runtime/node"
       - "/images/runtime/web"
       - "/images/runtime/native"
@@ -16,10 +19,13 @@ updates:
       - "dependencies"
       - "docker"
     ignore:
-      # The JDK major is this repo's contract, not a dependency detail. The tag,
-      # the io.codehunters.contents.java label, the README and every consumer
-      # target 21; a bump that moves only the FROM makes the labels lie. Moving
-      # it is a release decision with the docs and consumers moved alongside.
+      # The JDK major is this repo's contract, not a dependency detail. Each
+      # directory IS a major — images/ci/jdk is 21, images/ci/jdk25 is 25 — and
+      # the tag suffix, the io.codehunters.contents.java label, the README and
+      # every consumer name it. A bump that moves only the FROM makes all of
+      # them lie. A new major arrives as a new directory and a new tag suffix,
+      # which is a release decision, not an update this can apply. Digests and
+      # anything below the major still flow through.
       - dependency-name: "eclipse-temurin"
         update-types: ["version-update:semver-major"]
       # Same, and it has to stay in step with the JDK the CI image builds against.
