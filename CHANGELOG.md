@@ -7,6 +7,8 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [1.2.0] - 2026-09-18
+
 ### Added
 - **Java 25 published alongside Java 21, as three new variants.**
   `-jdk25` (Temurin JDK 25 + Gradle), `-graalvm25` (GraalVM CE for JDK 25 with
@@ -45,12 +47,13 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   a fixed x/crypto, and one now does.
 
 ### Fixed
-- **Every image reference in the README was unusable.** The org was
-  `ghcr.io/codehunters/...`, but GHCR lowercases `github.repository`, so the
-  path is `codehunters-io`. The tags carried a `v` the registry never sees —
-  `docker/metadata-action` strips it, so `v1.0.0` publishes as `1.0.0`. Copying
-  any example gave an image that does not exist. Also corrects the package
-  settings URL, which pointed at `/users/codehunters` for what is an org.
+- **The GraalVM major ignore rule matched nothing.** It spelled the image
+  `ghcr.io/graalvm/native-image-community`, but Dependabot strips the registry
+  host from a Docker dependency name, so the rule written to suppress major
+  bumps never fired — PR #22 (21 → 24) sat open for two weeks against a policy
+  that already forbade it. The name now carries no host. Every other entry was
+  unaffected: `eclipse-temurin`, `node`, `golang`, `krakend`, `alpine` and
+  `debian` all appear in a `FROM` without one.
 
 ### Changed
 - **`GO_VERSION` is now derived from the KrakenD release, not bumped on its
@@ -59,6 +62,22 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   2.13.11 — read off the binary with `go version -m`, and documented as such in
   the Dockerfile. A standalone Go bump (Dependabot proposed 1.27.1) produces
   `.so` files the runtime refuses to load, with nothing in CI to catch it.
+- Base image and action pins refreshed: `nginx` 1.31.5 → 1.31.6-alpine (web
+  runtime), `docker/build-push-action` 6.19.2 → 7.3.0,
+  `docker/setup-buildx-action` 3.12.0 → 4.3.0, `docker/metadata-action`
+  5.10.0 → 6.2.0, `github/codeql-action/upload-sarif` 4.37.9 → 4.38.0.
+
+## [1.1.0] - 2026-09-03
+
+### Fixed
+- **Every image reference in the README was unusable.** The org was
+  `ghcr.io/codehunters/...`, but GHCR lowercases `github.repository`, so the
+  path is `codehunters-io`. The tags carried a `v` the registry never sees —
+  `docker/metadata-action` strips it, so `v1.0.0` publishes as `1.0.0`. Copying
+  any example gave an image that does not exist. Also corrects the package
+  settings URL, which pointed at `/users/codehunters` for what is an org.
+
+### Changed
 - **Dependabot no longer proposes major bumps for the pinned runtimes.** The
   restructure into `images/ci/` and `images/runtime/` widened its coverage from
   three directories to eight, and it immediately opened majors for
