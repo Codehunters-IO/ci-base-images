@@ -73,26 +73,10 @@ COPY --from=build /src/build/libs/*.jar /app/app.jar
 CMD ["java", "-jar", "/app/app.jar"]
 ```
 
-React, served as static files:
+Worked examples for each runtime — Java 21 and 25, GraalVM native, Node, static
+web — are under [Building an application image](#building-an-application-image).
 
-```dockerfile
-FROM ghcr.io/codehunters-io/ci-base-images:1.2.0-node AS build
-WORKDIR /src
-COPY . .
-RUN npm ci && npm run build
-
-FROM ghcr.io/codehunters-io/ci-base-images:1.2.0-web-runtime
-COPY --from=build /src/dist /usr/share/nginx/html
-```
-
-The web image listens on **8080**, not 80: a non-root worker cannot bind a
-privileged port. It already does SPA fallback (`try_files ... /index.html`),
-long-lived immutable caching for hashed assets, `no-cache` for `index.html`,
-and a `/healthz` endpoint.
-
-The native image carries `libz.so.1`, which `distroless/base` does not ship and
-every `native-image` binary links dynamically. Without it the binary dies at
-exec.
+---
 
 ## What's inside
 
@@ -243,6 +227,124 @@ Move the build stage and the runtime stage together: a jar compiled with
 `--release 25` will not start on the JRE 21 runtime image, and the failure
 surfaces at container start rather than at build. The JDK 21 variants are not
 deprecated and are not going anywhere — the unsuffixed tags stay on 21.
+
+### Building an application image
+
+The CI examples above cover the pipeline side. These are the other half — the
+`Dockerfile` in a consumer repository. Build in the `ci` image, ship in the
+`runtime` one; the CI image must never be the base of something that serves
+traffic.
+
+**Spring Boot on Java 21** — the default, unsuffixed tag:
+
+```dockerfile
+FROM ghcr.io/codehunters-io/ci-base-images:1.2.0 AS build
+WORKDIR /src
+COPY . .
+RUN ./gradlew bootJar --no-daemon --build-cache
+
+FROM ghcr.io/codehunters-io/ci-base-images:1.2.0-java-runtime
+COPY --from=build /src/build/libs/*.jar /app/app.jar
+EXPOSE 8080
+CMD ["java", "-jar", "/app/app.jar"]
+```
+
+`JAVA_TOOL_OPTIONS` is already set to `-XX:MaxRAMPercentage=75.0
+-XX:+ExitOnOutOfMemoryError`, so the heap follows the container limit instead
+of the host's memory, and an OOM kills the process rather than leaving a JVM
+thrashing behind a passing health check. Override it if you must; do not unset
+it. `tini` is the entrypoint, so anything the app forks gets reaped.
+
+**Spring Boot on Java 25** — both stages move together:
+
+```dockerfile
+FROM ghcr.io/codehunters-io/ci-base-images:1.2.0-jdk25 AS build
+WORKDIR /src
+COPY . .
+RUN ./gradlew bootJar --no-daemon --build-cache
+
+FROM ghcr.io/codehunters-io/ci-base-images:1.2.0-java25-runtime
+COPY --from=build /src/build/libs/*.jar /app/app.jar
+EXPOSE 8080
+CMD ["java", "-jar", "/app/app.jar"]
+```
+
+Moving only the build stage is the mistake worth naming: a jar compiled with
+`--release 25` on the JRE 21 runtime image fails at container start with
+`UnsupportedClassVersionError`, not at build, so it passes CI and dies on
+deploy.
+
+**GraalVM native binary** — build on GraalVM, ship on distroless:
+
+```dockerfile
+FROM ghcr.io/codehunters-io/ci-base-images:1.2.0-graalvm AS build
+WORKDIR /src
+COPY . .
+RUN ./gradlew nativeCompile --no-daemon --build-cache
+
+FROM ghcr.io/codehunters-io/ci-base-images:1.2.0-native-runtime
+COPY --from=build /src/build/native/nativeCompile/app /app/app
+EXPOSE 8080
+ENTRYPOINT ["/app/app"]
+```
+
+Use `-graalvm25` for the build stage on Java 25; the native runtime image is
+unchanged either way, because a compiled binary carries no JVM. That image
+ships `libz.so.1`, which `distroless/base` does not and every `native-image`
+binary links dynamically — without it the binary dies at exec. It has no
+shell, so `RUN`, `CMD ["sh", ...]` and `docker exec ... sh` are all
+unavailable in the final stage: everything must be done in the build stage.
+
+**Node service:**
+
+```dockerfile
+FROM ghcr.io/codehunters-io/ci-base-images:1.2.0-node AS build
+WORKDIR /src
+COPY package*.json ./
+RUN npm ci
+COPY . .
+RUN npm run build && npm prune --omit=dev
+
+FROM ghcr.io/codehunters-io/ci-base-images:1.2.0-node-runtime
+COPY --from=build /src/node_modules /app/node_modules
+COPY --from=build /src/dist /app/dist
+EXPOSE 3000
+CMD ["node", "/app/dist/main.js"]
+```
+
+The runtime image carries no compiler, no `make` and no `python3`. A dependency
+with a native addon and no musl prebuild has to be built in the `ci` stage —
+which is why `node_modules` is copied across rather than installed in the final
+stage.
+
+**React/Vite static build:**
+
+```dockerfile
+FROM ghcr.io/codehunters-io/ci-base-images:1.2.0-node AS build
+WORKDIR /src
+COPY package*.json ./
+RUN npm ci
+COPY . .
+RUN npm run build
+
+FROM ghcr.io/codehunters-io/ci-base-images:1.2.0-web-runtime
+COPY --from=build /src/dist /usr/share/nginx/html
+```
+
+Port **8080**, not 80 — a non-root worker cannot bind a privileged port, so
+map it accordingly (`-p 80:8080`, or a `targetPort: 8080` in the Service). SPA
+fallback, immutable caching for hashed assets, `no-cache` for `index.html` and
+a `/healthz` endpoint are already configured; add none of it yourself.
+
+**Running one locally**, to check the image before the pipeline does:
+
+```bash
+docker build -t my-service:dev .
+docker run --rm -p 8080:8080 my-service:dev
+
+# what major does this actually carry?
+docker run --rm --entrypoint sh my-service:dev -c 'java -version; echo $CI_JAVA_MAJOR'
+```
 
 ### GraalVM variant (native-image)
 
@@ -549,6 +651,33 @@ a rebuild reproduces the same artifact, and its signature is checked — see
 | `ghcr.io/graalvm/jdk-community:21`              | JDK only — no `native-image` in `$JAVA_HOME/bin`  |
 | Custom Alpine + GraalVM tarball                 | No official musl build; binary-compat risk        |
 
+### Java 25 variants — `eclipse-temurin:25-*-alpine`, `native-image-community:25`
+
+Same reasoning as their 21 counterparts above, same libc, same AWS CLI path —
+the base image family does not change, only the JDK major. What is worth
+stating is why they are separate images rather than a bumped `FROM`.
+
+The JDK major is this repository's contract. It is named in the tag suffix, in
+`io.codehunters.contents.java`, in this README and in every consumer's
+`container:` line. Moving an existing variant to a new major makes all of those
+lie at once and breaks anyone pinned to the tag; publishing a new variant
+alongside breaks nobody and lets each repository move when its own build is
+ready. So 21 keeps the unsuffixed tags and 25 arrives beside it.
+
+That choice costs duplication — two near-identical Dockerfiles per family — and
+`check-pins.sh` is what keeps the copies from drifting, backed by the
+`CI_JAVA_MAJOR` assertion in the smoke tests for the one case the static check
+cannot see. The alternative, a single Dockerfile with `FROM ${JAVA_IMAGE}`,
+would hide every base from Dependabot and cost digest pinning, which is a worse
+trade.
+
+| Candidate                                  | Reason rejected                                        |
+|--------------------------------------------|--------------------------------------------------------|
+| Bump `images/ci/jdk` from 21 to 25          | Breaks every consumer pinned to `:latest` or `:vX.Y.Z`  |
+| One Dockerfile, `ARG JAVA_VERSION`          | Dependabot cannot see or update a non-literal `FROM`    |
+| Temurin 26                                  | Not an LTS; the consumers track LTS majors              |
+| Java 27                                     | Does not exist upstream — no Temurin or GraalVM image   |
+
 ### KrakenD variant — `alpine:3.24` + multi-stage COPY
 
 Alpine 3.24 is the base; the `krakend` binary is COPYed from the official
@@ -604,43 +733,70 @@ so the image stays agnostic about a choice each repository already made.
 
 ## Local testing
 
+Build any variant from the repo root — the build context is the root, not the
+image directory, because every Dockerfile `COPY scripts/`:
+
 ```bash
-# JDK variant
-docker buildx build --platform linux/amd64 -f images/jdk/Dockerfile -t codehunters-ci:dev .
-docker run --rm codehunters-ci:dev /usr/local/bin/smoke-test.sh
+# CI images (the smoke test is baked in)
+docker build -f images/ci/jdk/Dockerfile       -t cbi:dev-jdk       .
+docker build -f images/ci/jdk25/Dockerfile     -t cbi:dev-jdk25     .
+docker build -f images/ci/graalvm/Dockerfile   -t cbi:dev-graalvm   .
+docker build -f images/ci/graalvm25/Dockerfile -t cbi:dev-graalvm25 .
+docker build -f images/ci/krakend/Dockerfile   -t cbi:dev-krakend   .
+docker build -f images/ci/node/Dockerfile      -t cbi:dev-node      .
 
-# GraalVM variant
-docker buildx build --platform linux/amd64 -f images/graalvm/Dockerfile -t codehunters-ci:dev-graalvm .
-docker run --rm -e CI_VARIANT=graalvm codehunters-ci:dev-graalvm /usr/local/bin/smoke-test.sh
-
-# KrakenD variant
-docker buildx build --platform linux/amd64 -f images/krakend/Dockerfile -t codehunters-ci:dev-krakend .
-docker run --rm -e CI_VARIANT=krakend codehunters-ci:dev-krakend /usr/local/bin/smoke-test.sh
-
-# Node variant
-docker buildx build --platform linux/amd64 -f images/node/Dockerfile -t codehunters-ci:dev-node .
-docker run --rm -e CI_VARIANT=node codehunters-ci:dev-node /usr/local/bin/smoke-test.sh
-
-# Interactive shell
-docker run --rm -it codehunters-ci:dev
+# runtime images (they carry no test code — the script is mounted in)
+docker build -f images/runtime/java/Dockerfile   -t cbi:dev-java-runtime   .
+docker build -f images/runtime/java25/Dockerfile -t cbi:dev-java25-runtime .
+docker build -f images/runtime/node/Dockerfile   -t cbi:dev-node-runtime   .
+docker build -f images/runtime/web/Dockerfile    -t cbi:dev-web-runtime    .
+docker build -f images/runtime/native/Dockerfile -t cbi:dev-native-runtime .
 ```
 
-Multi-arch local build (requires buildx + QEMU):
+A CI image runs its smoke test during the build, so a green build is already a
+green smoke test. To re-run one against an image you have, or to test a runtime
+image at all, go through the dispatcher — each family is tested differently and
+the difference is not incidental:
 
 ```bash
-docker buildx build --platform linux/amd64,linux/arm64 -f images/jdk/Dockerfile -t codehunters-ci:dev .
-docker buildx build --platform linux/amd64,linux/arm64 -f images/graalvm/Dockerfile -t codehunters-ci:dev-graalvm .
-docker buildx build --platform linux/amd64,linux/arm64 -f images/krakend/Dockerfile -t codehunters-ci:dev-krakend .
-docker buildx build --platform linux/amd64,linux/arm64 -f images/node/Dockerfile -t codehunters-ci:dev-node .
+# ci       — the script is baked into the image
+IMAGE=cbi:dev-jdk25 KIND=ci VARIANT=jdk ./scripts/run-smoke.sh
+
+# runtime  — the script is mounted, because runtime images carry no test code
+IMAGE=cbi:dev-java25-runtime KIND=runtime VARIANT=java ./scripts/run-smoke.sh
+
+# web      — same, but nginx is the entrypoint and has to be overridden
+IMAGE=cbi:dev-web-runtime KIND=web VARIANT=web ./scripts/run-smoke.sh
+
+# native   — nothing runs inside: no shell. Asserted from the host instead.
+IMAGE=cbi:dev-native-runtime KIND=native ./scripts/run-smoke.sh
+```
+
+`VARIANT` picks the assertions, not the Java major. The major each image claims
+travels inside it as `CI_JAVA_MAJOR`, and the smoke test fails if the running
+JVM disagrees — so `VARIANT=jdk` is correct for both `jdk` and `jdk25`, and the
+check cannot be handed the answer it is meant to verify.
+
+Before opening a PR, run the same pin check CI runs:
+
+```bash
+./scripts/check-pins.sh
+```
+
+It asserts every `FROM` carries a digest, that each `io.codehunters.contents.base`
+label agrees with its own final `FROM`, and that a version `ARG` duplicated into
+a literal `FROM` still matches it.
+
+Multi-arch local build (needs buildx + QEMU, or a native arm64 host):
+
+```bash
+docker buildx build --platform linux/amd64,linux/arm64 \
+  -f images/ci/jdk25/Dockerfile -t cbi:dev-jdk25 .
 ```
 
 `TARGETARCH` needs no `--build-arg`: it is declared without a default, so
 BuildKit fills it with the platform being built. Giving it one would shadow
 that value, and a foreign-architecture build would fetch x86_64 artefacts.
-
-`CI_VARIANT` is baked into each image as an env var and controls
-variant-specific smoke assertions (e.g. `native-image --version` is asserted
-only when `CI_VARIANT=graalvm`).
 
 ---
 
@@ -648,26 +804,45 @@ only when `CI_VARIANT=graalvm`).
 
 ```
 images/
-  jdk/Dockerfile          # Temurin 21 (Alpine/musl)
-  graalvm/Dockerfile      # GraalVM CE for JDK 21 (Oracle Linux 9 / glibc)
-  krakend/Dockerfile      # alpine:3.21 + multi-stage COPY of krakend + golang
-  node/Dockerfile         # Node 20 (Alpine/musl) + npm + corepack + node-gyp deps
-scripts/                  # Install + smoke scripts (dispatcher per pkg manager)
+  ci/                       # run pipeline steps. root, full toolchain.
+    jdk/Dockerfile          #   Temurin 21 (Alpine/musl)
+    jdk25/Dockerfile        #   Temurin 25 (Alpine/musl)
+    graalvm/Dockerfile      #   GraalVM CE for JDK 21 (Oracle Linux 9 / glibc)
+    graalvm25/Dockerfile    #   GraalVM CE for JDK 25 (Oracle Linux 9 / glibc)
+    krakend/Dockerfile      #   alpine + multi-stage COPY of krakend + golang
+    node/Dockerfile         #   Node 20 (Alpine/musl) + npm + corepack + node-gyp deps
+  runtime/                  # be the base of your app image. non-root, no toolchain.
+    java/Dockerfile         #   Temurin JRE 21, tini, uid 10001
+    java25/Dockerfile       #   Temurin JRE 25, tini, uid 10001
+    node/Dockerfile         #   Node 20, uid 1000
+    web/Dockerfile          #   nginx unprivileged on 8080, SPA fallback
+    web/conf/               #   nginx.conf + default.conf
+    native/Dockerfile       #   distroless + libz, uid 65532, no shell
+scripts/                    # install + smoke scripts, dispatched per package manager
   install-base-packages.sh           # dispatcher
-  install-base-packages-alpine.sh    # apk path
-  install-base-packages-ol.sh        # microdnf + EPEL path
+  install-base-packages-alpine.sh    #   apk path
+  install-base-packages-ol.sh        #   microdnf + EPEL path
   install-docker-cli.sh              # dispatcher
-  install-docker-cli-alpine.sh       # apk
-  install-docker-cli-ol.sh           # docker-ce repo + microdnf
-  install-aws-cli.sh                 # libc-aware (musl pin vs glibc latest)
+  install-docker-cli-alpine.sh       #   apk
+  install-docker-cli-ol.sh           #   docker-ce repo + microdnf
+  install-aws-cli.sh                 # libc-aware (musl apk vs glibc bundle + PGP)
   install-gradle.sh                  # libc-agnostic (tarball + sha256)
   install-native-image.sh            # GraalVM-only verifier
   install-krakend.sh                 # KrakenD-only verifier (binary COPYed in Dockerfile)
   install-go.sh                      # KrakenD-only Go toolchain + plugin-deps verifier
+  install-node-toolchain.sh          # Node-only verifier, enables corepack
   cleanup.sh                         # dispatcher
   cleanup-alpine.sh / cleanup-ol.sh
-  smoke-test.sh                      # CI_VARIANT-gated
+  run-smoke.sh                       # host-side dispatcher: ci / runtime / web / native
+  smoke-test.sh                      # CI images, baked in, CI_VARIANT-gated
+  smoke-test-runtime.sh              # runtime images, mounted in
+  smoke-test-native.sh               # distroless, asserted from the host
+  check-pins.sh                      # digest + label + ARG consistency gate
 ```
+
+A directory per Java major, rather than one Dockerfile with an `ARG` over the
+`FROM`: the `FROM`s are literal so Dependabot can see and update the digests,
+and `FROM ${JAVA_IMAGE}` would hide every major from it.
 
 The build context is the repo root — both Dockerfiles `COPY scripts/` into
 `/usr/local/bin/` and invoke dispatchers at build time.
