@@ -885,6 +885,32 @@ than that would mean an input per consuming repository.
 
 ---
 
+## Branching model
+
+`develop` is the default branch and where work lands. `main` is the release
+branch: merging `develop` into it publishes, and a `v*` tag on it cuts a
+version. Same shape as `ci-templates`.
+
+| Branch | Role | What it triggers |
+|--------|------|------------------|
+| `develop` | default, integration | PR validation only — nothing is published |
+| `main` | release | publishes every variant and **moves the rolling tags** |
+| `v*` tag | version | publishes the semver tags; rolling tags are left alone |
+
+**The rolling tags follow `main`, not the default branch.** The shared publish
+workflow enables them when the push is on the repository's default branch,
+which is the right default for a repo with one branch and wrong here. This
+repository passes `push_rolling` explicitly on `refs/heads/main` instead.
+Without that, adopting `develop` would have stopped `:latest`, `:jdk25`,
+`:graalvm` and the rest from ever moving again — no error, no failed job, just
+consumers on a rolling tag frozen on an old digest.
+
+One consequence worth knowing: `:latest` now moves when `develop` reaches
+`main`, not on every merge. Pin a semver tag in anything that matters and this
+does not concern you, which was already the rule.
+
+---
+
 ## Versioning policy
 
 Semver. Cut a new release with:

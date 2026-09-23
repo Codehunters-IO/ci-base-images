@@ -8,6 +8,21 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ## [Unreleased]
 
 ### Changed
+- **`develop` is now the default branch; `main` is the release branch.** Same
+  shape as `ci-templates`: work lands in `develop`, merging it into `main`
+  publishes, and a `v*` tag on `main` cuts a version. Pull request validation
+  runs for both.
+
+  The rolling tags had to be made explicit to survive this. The shared publish
+  workflow enables them when the push is on the repository's *default* branch —
+  correct for a single-branch repo, wrong once `main` stops being the default.
+  Left implicit, `:latest`, `:jdk25`, `:graalvm` and the rest would simply stop
+  moving: no error, no failed job, just consumers on a rolling tag frozen on an
+  old digest. `build-publish.yml` now passes `push_rolling` on
+  `refs/heads/main` itself. Tag pushes stay excluded, as documented.
+
+  `:latest` therefore moves when `develop` reaches `main` rather than on every
+  merge.
 - **Every workflow now comes from `ci-templates`.** `pr-validation.yml`,
   `build-publish.yml` and `security-scan.yml` were 751 lines of CI living in
   this repository; they are now 189 lines of caller against
