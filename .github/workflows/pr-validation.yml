@@ -1,5 +1,14 @@
 name: PR Validation
 
+# Lint, gate, build and smoke-test every image before it can be merged.
+# Publishes nothing.
+#
+# The work lives in Codehunters-IO/ci-templates. Validating a container image is
+# not a thing this repository does, it is a thing every repository that ships
+# one does, and 264 lines of it sitting here meant the next repository started
+# from `docker build` and inherited none of the scanning, the architecture
+# matrix or the lint gates.
+
 on:
   pull_request:
     branches: [main]
@@ -12,253 +21,50 @@ permissions:
   contents: read
 
 jobs:
-  hadolint:
-    name: Dockerfile Lint (${{ matrix.variant }})
-    runs-on: ubuntu-latest
-    timeout-minutes: 5
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - variant: jdk
-            dockerfile: images/ci/jdk/Dockerfile
-          - variant: jdk25
-            dockerfile: images/ci/jdk25/Dockerfile
-          - variant: graalvm
-            dockerfile: images/ci/graalvm/Dockerfile
-          - variant: graalvm25
-            dockerfile: images/ci/graalvm25/Dockerfile
-          - variant: krakend
-            dockerfile: images/ci/krakend/Dockerfile
-          - variant: node
-            dockerfile: images/ci/node/Dockerfile
-          - variant: java-runtime
-            dockerfile: images/runtime/java/Dockerfile
-          - variant: java25-runtime
-            dockerfile: images/runtime/java25/Dockerfile
-          - variant: node-runtime
-            dockerfile: images/runtime/node/Dockerfile
-          - variant: web-runtime
-            dockerfile: images/runtime/web/Dockerfile
-          - variant: native-runtime
-            dockerfile: images/runtime/native/Dockerfile
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
-      - name: Hadolint
-        uses: hadolint/hadolint-action@06be81baf89a55ffd0e24b8f04a4185738dd3387 # v3.5.0
-        with:
-          dockerfile: ${{ matrix.dockerfile }}
-          failure-threshold: warning
-          ignore: DL3008,DL3018,DL3041
-
-  shellcheck:
-    name: Shell Script Lint
-    runs-on: ubuntu-latest
-    timeout-minutes: 5
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
-      - name: ShellCheck
-        uses: ludeeus/action-shellcheck@00cae500b08a931fb5698e11e79bfbd38e612a38 # 2.0.0
-        with:
-          scandir: ./scripts
-          severity: warning
-
-  pins:
-    name: Pin Consistency
-    runs-on: ubuntu-latest
-    timeout-minutes: 5
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
-      - name: Check base image pins and labels
-        run: ./scripts/check-pins.sh
-
-  build-test:
-    name: Build & Smoke Test (${{ matrix.variant }}, ${{ matrix.arch }})
-    runs-on: ${{ matrix.runner }}
-    timeout-minutes: 40
-    env:
-      LOCAL_IMAGE: ci-base-images:pr-${{ matrix.variant }}-${{ matrix.arch }}-${{ github.event.pull_request.number }}
-    strategy:
-      fail-fast: false
-      matrix:
-        # Both architectures, because Build & Publish pushes a manifest for
-        # both. Validating only amd64 here is what let an arm64-only break
-        # reach main with a green PR behind it — the TARGETARCH shadowing bug
-        # was found that way, after the fact.
-        #
-        # Native arm64 runners rather than QEMU: the repository is public, so
-        # they cost nothing, and a QEMU arm64 build of the GraalVM image takes
-        # long enough that people stop waiting for it.
-        variant: [jdk, jdk25, graalvm, graalvm25, krakend, node,
-                  java-runtime, java25-runtime, node-runtime, web-runtime,
-                  native-runtime]
-        arch: [amd64, arm64]
-        include:
-          - arch: amd64
-            runner: ubuntu-latest
-            platform: linux/amd64
-          - arch: arm64
-            runner: ubuntu-24.04-arm
-            platform: linux/arm64
-          - variant: jdk
-            smoke_kind: ci
-            smoke_variant: jdk
-            context_dir: images/ci/jdk
-            cache_scope_prefix: jdk-pr-
-            scan_severity: 'CRITICAL'
-          # smoke_variant stays 'jdk': the assertions are the same toolchain,
-          # and the major the image claims is carried by CI_JAVA_MAJOR inside it
-          # rather than passed in from the matrix, so the check cannot be handed
-          # the answer it is meant to verify.
-          - variant: jdk25
-            smoke_kind: ci
-            smoke_variant: jdk
-            context_dir: images/ci/jdk25
-            cache_scope_prefix: jdk25-pr-
-            scan_severity: 'CRITICAL'
-          - variant: graalvm
-            smoke_kind: ci
-            smoke_variant: graalvm
-            context_dir: images/ci/graalvm
-            cache_scope_prefix: graalvm-pr-
-            scan_severity: 'CRITICAL'
-          - variant: graalvm25
-            smoke_kind: ci
-            smoke_variant: graalvm
-            context_dir: images/ci/graalvm25
-            cache_scope_prefix: graalvm25-pr-
-            scan_severity: 'CRITICAL'
-          - variant: krakend
-            smoke_kind: ci
-            smoke_variant: krakend
-            context_dir: images/ci/krakend
-            cache_scope_prefix: krakend-pr-
-            scan_severity: 'CRITICAL'
-          - variant: node
-            smoke_kind: ci
-            smoke_variant: node
-            context_dir: images/ci/node
-            cache_scope_prefix: node-pr-
-            scan_severity: 'CRITICAL'
-          - variant: java-runtime
-            smoke_kind: runtime
-            smoke_variant: java
-            context_dir: images/runtime/java
-            cache_scope_prefix: java-runtime-pr-
-            scan_severity: 'CRITICAL,HIGH'
-          - variant: java25-runtime
-            smoke_kind: runtime
-            smoke_variant: java
-            context_dir: images/runtime/java25
-            cache_scope_prefix: java25-runtime-pr-
-            scan_severity: 'CRITICAL,HIGH'
-          - variant: node-runtime
-            smoke_kind: runtime
-            smoke_variant: node
-            context_dir: images/runtime/node
-            cache_scope_prefix: node-runtime-pr-
-            scan_severity: 'CRITICAL,HIGH'
-          - variant: web-runtime
-            smoke_kind: web
-            smoke_variant: web
-            context_dir: images/runtime/web
-            cache_scope_prefix: web-runtime-pr-
-            scan_severity: 'CRITICAL,HIGH'
-          - variant: native-runtime
-            smoke_kind: native
-            smoke_variant: native
-            context_dir: images/runtime/native
-            cache_scope_prefix: native-runtime-pr-
-            scan_severity: 'CRITICAL,HIGH'
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
-
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@37fe631027851001ddb9b187196cc803df7f5f0e # v4.3.0
-
-      - name: Build image
-        uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7.3.0
-        with:
-          context: .
-          file: ${{ matrix.context_dir }}/Dockerfile
-          platforms: ${{ matrix.platform }}
-          push: false
-          load: true
-          tags: ${{ env.LOCAL_IMAGE }}
-          cache-from: type=gha,scope=${{ matrix.cache_scope_prefix }}${{ matrix.arch }}
-          cache-to: type=gha,scope=${{ matrix.cache_scope_prefix }}${{ matrix.arch }},mode=max
-
-      - name: Smoke test
-        env:
-          IMAGE: ${{ env.LOCAL_IMAGE }}
-          KIND: ${{ matrix.smoke_kind }}
-          VARIANT: ${{ matrix.smoke_variant }}
-        run: ./scripts/run-smoke.sh
-
-      # Severity is per family, because the two families have opposite jobs.
-      # A runtime image faces traffic, so a fixable HIGH in it is a defect. A CI
+  validate:
+    # Pinned, not @v1: a reusable workflow resolves at call time, so a floating
+    # alias means any release of ci-templates changes what runs here without a
+    # commit in this repository. Bumping this pin is a reviewable change.
+    uses: Codehunters-IO/ci-templates/.github/workflows/shared-validate-image-pr.yml@212e85796d4c9a646ce12f979df9f923e4d01582 # v1.5.0
+    with:
+      # Both architectures, because Build & Publish pushes a manifest for both.
+      # Validating only amd64 here is what let an arm64-only break reach main
+      # behind a green PR — the TARGETARCH shadowing bug was found that way,
+      # after the fact.
+      platforms: 'linux/amd64,linux/arm64'
+      # Native arm64 rather than QEMU: the repository is public, so these cost
+      # nothing, and a QEMU arm64 build of the GraalVM image takes long enough
+      # that people stop waiting for it.
+      runner_arm64: 'ubuntu-24.04-arm'
+      smoke_command: './scripts/run-smoke.sh'
+      gate_command: './scripts/check-pins.sh'
+      gate_name: 'Pin Consistency'
+      shellcheck_scandir: './scripts'
+      hadolint_ignore: 'DL3008,DL3018,DL3041'
+      trivyignores: '.trivyignore.yaml'
+      ignore_policy: '.trivy/ignore-policy.rego'
+      # Severity is per family, because the two families have opposite jobs. A
+      # runtime image faces traffic, so a fixable HIGH in it is a defect. A CI
       # image is root with a toolchain by design and lives for one ephemeral
-      # job; gating it on HIGH means blocking every PR on gcc and git advisories
-      # nobody can act on, which trains people to ignore the gate.
+      # job; gating it on HIGH means blocking every PR on gcc and git
+      # advisories nobody can act on, which trains people to ignore the gate.
       #
-      # ignore-unfixed on both: an advisory with no upstream patch is not
-      # actionable, and gating on it turns the check permanently red.
-      # Report first with exit-code 0, gate second. If the gate ran alone its
-      # table would go to the output file and a failure would leave nothing
-      # readable in the log — which is precisely when somebody needs to read it.
-      - name: Scan image for vulnerabilities
-        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
-        with:
-          image-ref: ${{ env.LOCAL_IMAGE }}
-          scanners: vuln
-          vuln-type: os,library
-          severity: ${{ matrix.scan_severity }}
-          ignore-unfixed: true
-          trivyignores: .trivyignore.yaml
-          ignore-policy: .trivy/ignore-policy.rego
-          format: table
-          output: trivy-${{ matrix.variant }}-${{ matrix.arch }}.txt
-          exit-code: '0'
-          timeout: '15m'
-
-      - name: Publish scan result
-        if: always()
-        run: |
-          {
-            echo "### Vulnerability scan — ${{ matrix.variant }} (${{ matrix.arch }})"
-            echo ""
-            echo "Gate: \`${{ matrix.scan_severity }}\`, fixable only."
-            echo ""
-            echo '```'
-            if [ -s "trivy-${{ matrix.variant }}-${{ matrix.arch }}.txt" ]; then
-              head -c 40000 "trivy-${{ matrix.variant }}-${{ matrix.arch }}.txt"
-            else
-              echo "No vulnerabilities at or above the gate."
-            fi
-            echo '```'
-          } >> "$GITHUB_STEP_SUMMARY"
-
-      - name: Vulnerability gate
-        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
-        with:
-          image-ref: ${{ env.LOCAL_IMAGE }}
-          scanners: vuln
-          vuln-type: os,library
-          severity: ${{ matrix.scan_severity }}
-          ignore-unfixed: true
-          trivyignores: .trivyignore.yaml
-          ignore-policy: .trivy/ignore-policy.rego
-          format: table
-          exit-code: '1'
-          timeout: '15m'
-          skip-setup-trivy: true
-
-      - name: Report image size
-        if: always()
-        run: |
-          SIZE=$(docker image inspect ${{ env.LOCAL_IMAGE }} \
-            --format '{{.Size}}')
-          SIZE_MB=$((SIZE / 1024 / 1024))
-          echo "### Image Size — ${{ matrix.variant }} (${{ matrix.arch }}, uncompressed)" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "**${SIZE_MB} MB**" >> $GITHUB_STEP_SUMMARY
+      # smoke_env carries what run-smoke.sh dispatches on. KIND picks how the
+      # image is tested — baked-in script for CI, mounted for runtime, host-side
+      # for the shell-less native image — and VARIANT picks the assertions. The
+      # Java major is deliberately NOT passed: it travels inside the image as
+      # CI_JAVA_MAJOR, so the check cannot be handed the answer it verifies.
+      images: |
+        [
+          {"name": "jdk",            "dockerfile": "images/ci/jdk/Dockerfile",            "scan_severity": "CRITICAL",      "smoke_env": "KIND=ci\nVARIANT=jdk"},
+          {"name": "jdk25",          "dockerfile": "images/ci/jdk25/Dockerfile",          "scan_severity": "CRITICAL",      "smoke_env": "KIND=ci\nVARIANT=jdk"},
+          {"name": "graalvm",        "dockerfile": "images/ci/graalvm/Dockerfile",        "scan_severity": "CRITICAL",      "smoke_env": "KIND=ci\nVARIANT=graalvm"},
+          {"name": "graalvm25",      "dockerfile": "images/ci/graalvm25/Dockerfile",      "scan_severity": "CRITICAL",      "smoke_env": "KIND=ci\nVARIANT=graalvm"},
+          {"name": "krakend",        "dockerfile": "images/ci/krakend/Dockerfile",        "scan_severity": "CRITICAL",      "smoke_env": "KIND=ci\nVARIANT=krakend"},
+          {"name": "node",           "dockerfile": "images/ci/node/Dockerfile",           "scan_severity": "CRITICAL",      "smoke_env": "KIND=ci\nVARIANT=node"},
+          {"name": "java-runtime",   "dockerfile": "images/runtime/java/Dockerfile",      "scan_severity": "CRITICAL,HIGH", "smoke_env": "KIND=runtime\nVARIANT=java"},
+          {"name": "java25-runtime", "dockerfile": "images/runtime/java25/Dockerfile",    "scan_severity": "CRITICAL,HIGH", "smoke_env": "KIND=runtime\nVARIANT=java"},
+          {"name": "node-runtime",   "dockerfile": "images/runtime/node/Dockerfile",      "scan_severity": "CRITICAL,HIGH", "smoke_env": "KIND=runtime\nVARIANT=node"},
+          {"name": "web-runtime",    "dockerfile": "images/runtime/web/Dockerfile",       "scan_severity": "CRITICAL,HIGH", "smoke_env": "KIND=web\nVARIANT=web"},
+          {"name": "native-runtime", "dockerfile": "images/runtime/native/Dockerfile",    "scan_severity": "CRITICAL,HIGH", "smoke_env": "KIND=native"}
+        ]

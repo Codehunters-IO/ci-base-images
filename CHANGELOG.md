@@ -7,6 +7,34 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Changed
+- **Every workflow now comes from `ci-templates`.** `pr-validation.yml`,
+  `build-publish.yml` and `security-scan.yml` were 751 lines of CI living in
+  this repository; they are now 189 lines of caller against
+  `shared-validate-image-pr`, `shared-build-publish-image` and
+  `shared-scan-published-images`. `cleanup-packages.yml` already called out and
+  moves to the same release, so all four pin one version of ci-templates
+  instead of two.
+
+  Two of those reusable workflows are new — the pre-merge gate and the weekly
+  rescan had no template, so this is not a file move. They were added in
+  ci-templates v1.5.0, with a self-test that runs the validation workflow
+  end to end.
+
+  Pinned by commit SHA rather than `@v1`: a reusable workflow resolves at call
+  time, so a floating alias means any release of ci-templates changes what runs
+  here with no commit in this repository.
+
+  Behaviour is unchanged, including the two things worth losing in a migration:
+  pull requests still validate **both** architectures, and arm64 still builds on
+  a native runner rather than QEMU — the shared workflow takes `runner_arm64`
+  for exactly this. Validating only amd64 is what let the TARGETARCH shadowing
+  bug reach `main` behind a green pull request.
+
+  `scripts/` stays local. It is this repository's own knowledge, and
+  `check-pins.sh` reaches the shared workflow as `gate_command` — a string it
+  runs without knowing what it does.
+
 ## [1.2.0] - 2026-09-18
 
 ### Added
