@@ -818,6 +818,11 @@ images/
     web/Dockerfile          #   nginx unprivileged on 8080, SPA fallback
     web/conf/               #   nginx.conf + default.conf
     native/Dockerfile       #   distroless + libz, uid 65532, no shell
+.github/workflows/          # thin callers only — the work lives in ci-templates
+  pr-validation.yml         #   shared-validate-image-pr      (lint, gate, build, scan)
+  build-publish.yml         #   shared-build-publish-image    (publish multi-arch + SBOM)
+  security-scan.yml         #   shared-scan-published-images  (weekly rescan of the tags)
+  cleanup-packages.yml      #   shared-cleanup-packages       (prune untagged versions)
 scripts/                    # install + smoke scripts, dispatched per package manager
   install-base-packages.sh           # dispatcher
   install-base-packages-alpine.sh    #   apk path
@@ -846,6 +851,37 @@ and `FROM ${JAVA_IMAGE}` would hide every major from it.
 
 The build context is the repo root — both Dockerfiles `COPY scripts/` into
 `/usr/local/bin/` and invoke dispatchers at build time.
+
+---
+
+## How this repository's own CI works
+
+Every workflow here is a caller. The four files in `.github/workflows/` declare
+triggers, permissions and the image list; all of the work lives in reusable
+workflows in [`Codehunters-IO/ci-templates`](https://github.com/Codehunters-IO/ci-templates).
+
+| File | Reusable workflow | Does |
+|------|-------------------|------|
+| `pr-validation.yml` | `shared-validate-image-pr` | hadolint, ShellCheck, `check-pins.sh`, then build + smoke + CVE gate per image per architecture |
+| `build-publish.yml` | `shared-build-publish-image` | publish multi-arch manifests with SBOM and provenance |
+| `security-scan.yml` | `shared-scan-published-images` | weekly rescan of the tags consumers pull |
+| `cleanup-packages.yml` | `shared-cleanup-packages` | prune untagged GHCR versions |
+
+The image list appears in three of them rather than once, because a pull
+request, a publish and a rescan need different fields — a Dockerfile path, a tag
+suffix, a rolling tag. Adding a variant means editing all three, and the number
+of entries is the first thing to check when one of them behaves oddly.
+
+Each pins ci-templates by **commit SHA**, not `@v1`. A reusable workflow
+resolves at call time, so a floating alias means any release there changes what
+runs here with no commit in this repository. Bumping the pin is a reviewable
+change; Dependabot proposes it.
+
+**Two things stay local on purpose.** `scripts/` is the repository's own
+knowledge — what a smoke test asserts for each variant, which pins have to
+agree — and `check-pins.sh` reaches ci-templates as `gate_command`, a string
+the shared workflow runs without knowing what it does. Anything more specific
+than that would mean an input per consuming repository.
 
 ---
 
