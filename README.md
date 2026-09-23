@@ -826,7 +826,7 @@ images/
 scripts/                    # install + smoke scripts, dispatched per package manager
   install-base-packages.sh           # dispatcher
   install-base-packages-alpine.sh    #   apk path
-  install-base-packages-ol.sh        #   microdnf + EPEL path
+  install-base-packages-ol.sh        #   microdnf path
   install-docker-cli.sh              # dispatcher
   install-docker-cli-alpine.sh       #   apk
   install-docker-cli-ol.sh           #   docker-ce repo + microdnf
