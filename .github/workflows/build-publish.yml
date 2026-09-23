@@ -37,7 +37,17 @@ jobs:
     # Pinned, not @v1 — see the note in pr-validation.yml.
     uses: Codehunters-IO/ci-templates/.github/workflows/shared-build-publish-image.yml@212e85796d4c9a646ce12f979df9f923e4d01582 # v1.5.0
     with:
-      push_rolling: ${{ inputs.push_rolling || false }}
+      # Explicitly on main, not left to the shared workflow's own rule. That rule
+      # enables the rolling tags when the push is on the DEFAULT branch, which
+      # stopped being main when develop was adopted as the integration branch.
+      # Leaving it implicit means :latest, :jdk25, :graalvm and the rest simply
+      # stop moving — no error, no failed job, just consumers on a rolling tag
+      # quietly frozen on an old digest. main is this repository's release
+      # branch whatever GitHub considers the default.
+      #
+      # Tag pushes stay excluded, which is the documented behaviour: a v* tag
+      # publishes semver tags and never moves a rolling one.
+      push_rolling: ${{ github.ref == 'refs/heads/main' || inputs.push_rolling || false }}
       smoke_command: './scripts/run-smoke.sh'
       trivyignores: '.trivyignore.yaml'
       ignore_policy: '.trivy/ignore-policy.rego'

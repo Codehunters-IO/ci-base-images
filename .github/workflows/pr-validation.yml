@@ -10,8 +10,11 @@ name: PR Validation
 # matrix or the lint gates.
 
 on:
+  # develop is where work lands; main receives release merges from it. A pull
+  # request into either one builds every image, because both are branches whose
+  # content gets published.
   pull_request:
-    branches: [main]
+    branches: [develop, main]
     paths:
       - 'images/**'
       - 'scripts/**'
