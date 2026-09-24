@@ -3,7 +3,7 @@
 # Contents: Temurin JDK 21 (Alpine/musl), Gradle, AWS CLI v2, Docker CLI + buildx.
 # Usage: jobs.<id>.container: ghcr.io/codehunters/ci-base-images:vX.Y.Z
 
-FROM eclipse-temurin:21-jdk-alpine@sha256:6ea5548706b60ac0a602eaf48af74792cbab012d90e811ca8db6184b16b5c3d6
+FROM eclipse-temurin:21-jdk-alpine@sha256:cd87715a8d45cfaa42419207c64680234f62785c49055cccd20437b5c9018380
 
 # No default: BuildKit fills TARGETARCH with the platform being built, but only
 # for an ARG declared without one. `ARG TARGETARCH=amd64` shadows it, and the
