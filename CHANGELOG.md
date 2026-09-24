@@ -50,6 +50,12 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   `check-pins.sh` reaches the shared workflow as `gate_command` — a string it
   runs without knowing what it does.
 
+- **Java 27 is out of scope, and not "pending upstream".** The 1.2.0 note said
+  it was excluded because Temurin published no image; the durable reason is that
+  27 is not an LTS. This repository tracks LTS majors only — 21 today, 25
+  beside it, 29 when it ships in September 2027 — so 26, 27 and 28 are never
+  candidates regardless of what Temurin publishes. Nothing to wait for.
+
 ## [1.2.0] - 2026-09-18
 
 ### Added

@@ -676,7 +676,7 @@ trade.
 | Bump `images/ci/jdk` from 21 to 25          | Breaks every consumer pinned to `:latest` or `:vX.Y.Z`  |
 | One Dockerfile, `ARG JAVA_VERSION`          | Dependabot cannot see or update a non-literal `FROM`    |
 | Temurin 26                                  | Not an LTS; the consumers track LTS majors              |
-| Java 27                                     | Does not exist upstream — no Temurin or GraalVM image   |
+| Java 27                                     | Not an LTS either; 29 is the next one (Sep 2027)        |
 
 ### KrakenD variant — `alpine:3.24` + multi-stage COPY
 
