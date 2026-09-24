@@ -33,15 +33,43 @@ ENV LANG=C.UTF-8 \
 
 COPY scripts/ /usr/local/bin/
 
+# Build-time only, cleared below. The AWS CLI is a Python program, so every
+# `aws` invocation during the build compiles the modules it imports and writes
+# the bytecode next to them: 99 MB of __pycache__ in the published image,
+# measured. cleanup.sh deleted it and the smoke test immediately recreated it,
+# which is why it survived. Consumers still get bytecode caching at run time —
+# the first `aws` call in a job writes it to the container's own layer, which
+# is thrown away with the job.
+ENV PYTHONDONTWRITEBYTECODE=1
+
+# One RUN per component rather than one for all four. The layers are the unit
+# of transfer, so a Gradle bump used to reship the base packages, the AWS CLI
+# and the Docker CLI with it. Each ends in cleanup.sh because a later layer
+# cannot shrink an earlier one: deleting a file that a previous layer created
+# writes a whiteout and adds bytes rather than removing them.
 RUN set -eux; \
     chmod +x /usr/local/bin/*.sh; \
     /usr/local/bin/install-base-packages.sh; \
+    /usr/local/bin/cleanup.sh
+
+RUN set -eux; \
     TARGETARCH="${TARGETARCH}" AWS_CLI_VERSION="${AWS_CLI_VERSION}" AWS_CLI_VERIFY_GPG="${AWS_CLI_VERIFY_GPG}" \
         /usr/local/bin/install-aws-cli.sh; \
+    /usr/local/bin/cleanup.sh
+
+RUN set -eux; \
     /usr/local/bin/install-docker-cli.sh; \
+    /usr/local/bin/cleanup.sh
+
+RUN set -eux; \
     GRADLE_VERSION="${GRADLE_VERSION}" /usr/local/bin/install-gradle.sh; \
-    /usr/local/bin/cleanup.sh; \
-    /usr/local/bin/smoke-test.sh
+    /usr/local/bin/cleanup.sh
+
+RUN /usr/local/bin/smoke-test.sh
+
+# Empty, not absent: Python only honours the variable when it is non-empty, so
+# this restores default behaviour for whatever the consumer runs.
+ENV PYTHONDONTWRITEBYTECODE=
 
 LABEL org.opencontainers.image.title="ci-base-images" \
       org.opencontainers.image.description="CI base image for codehunters-ms-* Java pipelines (JDK 25, Gradle, AWS CLI v2, Docker CLI)" \

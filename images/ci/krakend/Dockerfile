@@ -27,6 +27,13 @@ FROM krakend:2.13.11@sha256:26eb32dbb0e679c62170b21b4efb0729dc00262afd98fe621011
 # Bump KRAKEND_VERSION and GO_VERSION together, never apart.
 FROM golang:1.26.8-alpine@sha256:ce864e7223ac17b1775e6fd0b4c0db580c2eb50e7953a427916379e4b92a1628 AS go-src
 
+# Pruned here rather than after the COPY below: a deletion in a later layer
+# writes a whiteout and the bytes still ship. `test/` and `api/` are the Go
+# distribution's own conformance suite and API-compatibility manifests — 30 MB
+# that no consumer build reads. `src/` stays: since Go 1.20 there is no
+# precompiled standard library, and the compiler builds it from these sources.
+RUN rm -rf /usr/local/go/test /usr/local/go/api /usr/local/go/doc
+
 # Stage 3 — final CI image.
 FROM alpine:3.24@sha256:294b683cb724975bec92580e1e685676bd4b50bda910ddb8c51d4cabeaec77e6
 
@@ -51,26 +58,44 @@ ENV LANG=C.UTF-8 \
     PATH=/usr/local/go/bin:/root/go/bin:/usr/local/bin:/usr/bin:/bin:/sbin:/usr/sbin
 
 COPY scripts/ /usr/local/bin/
-
-# Copy KrakenD CLI and Go toolchain from the source images.
 COPY --from=krakend-src /usr/bin/krakend /usr/local/bin/krakend
 COPY --from=go-src      /usr/local/go    /usr/local/go
 
+# Build-time only, cleared below. The AWS CLI is a Python program, so every
+# `aws` invocation during the build writes bytecode caches next to the modules
+# it imports — 99 MB of __pycache__ in the published image, measured.
+# cleanup.sh deleted it and the smoke test recreated it.
+ENV PYTHONDONTWRITEBYTECODE=1
+
+# One RUN per component rather than one for all of them: the layers are the
+# unit of transfer. Each ends in cleanup.sh because a later layer cannot shrink
+# an earlier one — deleting a file a previous layer created writes a whiteout
+# and adds bytes rather than removing them.
 RUN set -eux; \
     chmod +x /usr/local/bin/*.sh; \
     /usr/local/bin/install-base-packages.sh; \
-    # KrakenD-variant extras: Go plugin build deps + make for Makefile-driven CI.
     apk add --no-cache \
         build-base \
         binutils-gold \
         make; \
+    /usr/local/bin/cleanup.sh
+
+RUN set -eux; \
     TARGETARCH="${TARGETARCH}" AWS_CLI_VERSION="${AWS_CLI_VERSION}" AWS_CLI_VERIFY_GPG="${AWS_CLI_VERIFY_GPG}" \
         /usr/local/bin/install-aws-cli.sh; \
+    /usr/local/bin/cleanup.sh
+
+RUN set -eux; \
     /usr/local/bin/install-docker-cli.sh; \
     /usr/local/bin/install-krakend.sh; \
     /usr/local/bin/install-go.sh; \
-    /usr/local/bin/cleanup.sh; \
-    /usr/local/bin/smoke-test.sh
+    /usr/local/bin/cleanup.sh
+
+RUN /usr/local/bin/smoke-test.sh
+
+# Empty, not absent: Python only honours the variable when it is non-empty, so
+# this restores default behaviour for whatever the consumer runs.
+ENV PYTHONDONTWRITEBYTECODE=
 
 LABEL org.opencontainers.image.title="ci-base-images" \
       org.opencontainers.image.description="CI base image for codehunters-gw-krakend pipelines (KrakenD CLI, Go toolchain, plugin build deps, AWS CLI v2, Docker CLI)" \

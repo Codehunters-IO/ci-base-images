@@ -35,6 +35,17 @@ ENV LANG=C.UTF-8 \
 
 COPY scripts/ /usr/local/bin/
 
+# Build-time only, cleared below. The AWS CLI is a Python program, so every
+# `aws` invocation during the build writes bytecode caches next to the modules
+# it imports — 99 MB of __pycache__ in the published image, measured on the
+# jdk variant. cleanup.sh deleted it and the smoke test recreated it.
+ENV PYTHONDONTWRITEBYTECODE=1
+
+# One RUN per component rather than one for all of them: the layers are the
+# unit of transfer, so an npm bump used to reship the AWS CLI and the Docker
+# CLI with it. Each ends in cleanup.sh because a later layer cannot shrink an
+# earlier one — deleting a file a previous layer created writes a whiteout and
+# adds bytes rather than removing them.
 RUN set -eux; \
     chmod +x /usr/local/bin/*.sh; \
     /usr/local/bin/install-base-packages.sh; \
@@ -45,18 +56,32 @@ RUN set -eux; \
     apk add --no-cache \
         build-base \
         python3; \
-    # npm 10.8.2, bundled with Node 20, carries a CRITICAL in its own vendored
-    # tar (CVE-2026-59873). It sits in npm's node_modules, so no consumer
-    # lockfile reaches it. npm@11 and not npm@latest: npm 12 wants node
-    # ^22.22.2, and the Node major here follows the consumers.
+    /usr/local/bin/cleanup.sh
+
+# npm 10.8.2, bundled with Node 20, carries a CRITICAL in its own vendored
+# tar (CVE-2026-59873). It sits in npm's node_modules, so no consumer
+# lockfile reaches it. npm@11 and not npm@latest: npm 12 wants node
+# ^22.22.2, and the Node major here follows the consumers.
+RUN set -eux; \
     npm install -g npm@11; \
     npm cache clean --force; \
+    /usr/local/bin/cleanup.sh
+
+RUN set -eux; \
     TARGETARCH="${TARGETARCH}" AWS_CLI_VERSION="${AWS_CLI_VERSION}" AWS_CLI_VERIFY_GPG="${AWS_CLI_VERIFY_GPG}" \
         /usr/local/bin/install-aws-cli.sh; \
+    /usr/local/bin/cleanup.sh
+
+RUN set -eux; \
     /usr/local/bin/install-docker-cli.sh; \
     /usr/local/bin/install-node-toolchain.sh; \
-    /usr/local/bin/cleanup.sh; \
-    /usr/local/bin/smoke-test.sh
+    /usr/local/bin/cleanup.sh
+
+RUN /usr/local/bin/smoke-test.sh
+
+# Empty, not absent: Python only honours the variable when it is non-empty, so
+# this restores default behaviour for whatever the consumer runs.
+ENV PYTHONDONTWRITEBYTECODE=
 
 LABEL org.opencontainers.image.title="ci-base-images" \
       org.opencontainers.image.description="CI base image for Hardhat/Solidity and TypeScript pipelines (Node 20, npm, corepack, node-gyp deps, AWS CLI v2, Docker CLI)" \
