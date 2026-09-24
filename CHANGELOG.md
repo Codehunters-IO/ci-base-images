@@ -7,6 +7,8 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [1.3.0] - 2026-09-24
+
 ### Changed
 - **`develop` is now the default branch; `main` is the release branch.** Same
   shape as `ci-templates`: work lands in `develop`, merging it into `main`
@@ -55,6 +57,16 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   27 is not an LTS. This repository tracks LTS majors only — 21 today, 25
   beside it, 29 when it ships in September 2027 — so 26, 27 and 28 are never
   candidates regardless of what Temurin publishes. Nothing to wait for.
+
+### Security
+- **Every Debian- and Alpine-derived base digest refreshed.** Five rebuilds of
+  the same tags, taken straight from the registry rather than from a version
+  bump: `eclipse-temurin:21-jdk-alpine`, `eclipse-temurin:21-jre-alpine`,
+  `krakend:2.13.11`, `alpine:3.24` and `debian:12-slim`. A digest-pinned `FROM`
+  is frozen against exactly this — the upstream tag moves when its distro
+  patches, and the pin does not follow it — so a rebuild is the only way the
+  patches reach these images. `GO_VERSION` is untouched: the KrakenD bump is a
+  rebuild of 2.13.11, not a new release, so the plugin ABI pin still holds.
 
 ## [1.2.0] - 2026-09-18
 
