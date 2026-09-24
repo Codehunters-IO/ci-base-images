@@ -10,7 +10,7 @@ ARG KRAKEND_VERSION=2.13.11
 ARG GO_VERSION=1.26.8
 
 # Stage 1 — pull the KrakenD CLI binary from the official image.
-FROM krakend:2.13.11@sha256:87453dd2f93d42d5b8d0c4dd82b68427ee28fb061c9d51571990383cac7fed62 AS krakend-src
+FROM krakend:2.13.11@sha256:26eb32dbb0e679c62170b21b4efb0729dc00262afd98fe6210110dbbbdd6425f AS krakend-src
 
 # Stage 2 — pull the Go toolchain from the official Alpine image (apk Go is
 # typically behind the version used by krakend/builder; matching the exact
