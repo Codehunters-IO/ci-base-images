@@ -11,7 +11,7 @@ fi
 DOCKER_REPO_URL="https://download.docker.com/linux/centos/docker-ce.repo"
 curl -fSL -o /etc/yum.repos.d/docker-ce.repo "${DOCKER_REPO_URL}"
 
-"${PM}" install -y \
+"${PM}" install -y --nodocs --setopt=install_weak_deps=0 \
     docker-ce-cli \
     docker-buildx-plugin
 

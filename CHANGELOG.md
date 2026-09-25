@@ -7,6 +7,43 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Changed
+- **The CI images stop shipping the Python bytecode they regenerate at build
+  time.** `cleanup.sh` deleted `__pycache__`, and then `smoke-test.sh` ran
+  `aws --version` and `aws ecr help` in the same `RUN`, which compiled it all
+  back. The published image carried 96 cache directories holding 13.3 MB of
+  `.pyc`; the giveaway was `docutils` among them, a package nothing but
+  `aws ... help` loads. `PYTHONDONTWRITEBYTECODE=1` now covers the build and is
+  cleared afterwards, so consumers keep normal caching at run time.
+
+  End to end on arm64, same architecture both sides: 830 MB to 816 MB
+  uncompressed for the jdk variant.
+
+  Alpine variants only. The GraalVM images install the AWS CLI from the
+  official bundle, a PyInstaller build that ships its own precompiled
+  interpreter — zero cache directories, verified.
+
+- **Each CI image builds in one layer per component instead of one for all of
+  them.** Same bytes, fewer of them moved: a Gradle bump used to reship the base
+  packages, the AWS CLI and the Docker CLI alongside it, because the layer is
+  the unit of transfer. `cleanup.sh` now runs at the end of every layer rather
+  than once at the end, which is what makes the split safe — a later layer
+  cannot shrink an earlier one, it can only write a whiteout over it.
+
+- **GraalVM: no documentation, no weak dependencies, no message catalogues.**
+  `microdnf install --nodocs --setopt=install_weak_deps=0`, plus the locale
+  purge per layer. Measured in our own layer of the published image: 20.7 MB of
+  `/usr/share/doc`, 3.9 MB of man pages, 22.3 MB of `/usr/share/locale`, and
+  19.4 MB of perl that arrives only as a weak dependency of git. Roughly 65 MB
+  that no CI job reads.
+
+- **The Go distribution is pruned in the stage it is copied from.** `test/` and
+  `api/` — the toolchain's own conformance suite and API manifests, ~30 MB — are
+  removed inside `go-src` so the `COPY` never carries them. Doing it after the
+  `COPY` would have written a whiteout and shipped the bytes anyway. `src/`
+  stays: Go has had no precompiled standard library since 1.20 and the compiler
+  needs those sources.
+
 ## [1.3.0] - 2026-09-24
 
 ### Changed

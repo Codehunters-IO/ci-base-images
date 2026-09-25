@@ -9,6 +9,12 @@ fi
 
 "${PM}" clean all || true
 
+# Message catalogues for languages no CI log is ever read in. This runs at the
+# end of every install layer, so what it removes is what that same layer just
+# created - the base image's own catalogues are left alone, since deleting
+# those would only add a whiteout. LANG is C.UTF-8 in every variant.
+rm -rf /usr/share/locale/* 2>/dev/null || true
+
 rm -rf \
     /var/cache/dnf/* \
     /var/cache/yum/* \
