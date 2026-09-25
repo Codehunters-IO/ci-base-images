@@ -63,12 +63,12 @@ Multi-stage is the intended shape — build in the `ci` image, ship in the
 `runtime` one:
 
 ```dockerfile
-FROM ghcr.io/codehunters-io/ci-base-images:1.3.0 AS build
+FROM ghcr.io/codehunters-io/ci-base-images:1.3.1 AS build
 WORKDIR /src
 COPY . .
 RUN ./gradlew bootJar --no-daemon
 
-FROM ghcr.io/codehunters-io/ci-base-images:1.3.0-java-runtime
+FROM ghcr.io/codehunters-io/ci-base-images:1.3.1-java-runtime
 COPY --from=build /src/build/libs/*.jar /app/app.jar
 CMD ["java", "-jar", "/app/app.jar"]
 ```
@@ -173,12 +173,12 @@ Node variant (`-node` suffix):
 | `sha-<short>-node`      | Every build                                 | Reproducible debugging            |
 | `main-node`             | Push to `main`                              | Bleeding edge                     |
 
-**Production rule:** pin a semver tag (e.g. `:1.3.0`, `:1.3.0-graalvm`,
-`:1.3.0-java-runtime`). Never a rolling tag — `:latest`, `:graalvm`,
+**Production rule:** pin a semver tag (e.g. `:1.3.1`, `:1.3.1-graalvm`,
+`:1.3.1-java-runtime`). Never a rolling tag — `:latest`, `:graalvm`,
 `:node`, `:java-runtime` — in release or prod paths. All eleven variants are
 built from the same commit and share the same semver: pick the variant by
-suffix, the version by number. That includes the Java major — `:1.3.0` and
-`:1.3.0-jdk25` are the same release, built from the same commit, differing
+suffix, the version by number. That includes the Java major — `:1.3.1` and
+`:1.3.1-jdk25` are the same release, built from the same commit, differing
 only in the JDK they carry.
 
 ---
@@ -192,7 +192,7 @@ jobs:
   build:
     runs-on: ubuntu-latest
     container:
-      image: ghcr.io/codehunters-io/ci-base-images:1.3.0
+      image: ghcr.io/codehunters-io/ci-base-images:1.3.1
     steps:
       - uses: actions/checkout@v5
 
@@ -214,13 +214,13 @@ bump:
 
 | Stage        | From                  | To                            |
 |--------------|-----------------------|-------------------------------|
-| build / test | `:1.3.0`              | `:1.3.0-jdk25`                |
-| `nativeCompile` | `:1.3.0-graalvm`   | `:1.3.0-graalvm25`            |
-| app image    | `:1.3.0-java-runtime` | `:1.3.0-java25-runtime`       |
+| build / test | `:1.3.1`              | `:1.3.1-jdk25`                |
+| `nativeCompile` | `:1.3.1-graalvm`   | `:1.3.1-graalvm25`            |
+| app image    | `:1.3.1-java-runtime` | `:1.3.1-java25-runtime`       |
 
 ```yaml
     container:
-      image: ghcr.io/codehunters-io/ci-base-images:1.3.0-jdk25
+      image: ghcr.io/codehunters-io/ci-base-images:1.3.1-jdk25
 ```
 
 Move the build stage and the runtime stage together: a jar compiled with
@@ -238,12 +238,12 @@ traffic.
 **Spring Boot on Java 21** — the default, unsuffixed tag:
 
 ```dockerfile
-FROM ghcr.io/codehunters-io/ci-base-images:1.3.0 AS build
+FROM ghcr.io/codehunters-io/ci-base-images:1.3.1 AS build
 WORKDIR /src
 COPY . .
 RUN ./gradlew bootJar --no-daemon --build-cache
 
-FROM ghcr.io/codehunters-io/ci-base-images:1.3.0-java-runtime
+FROM ghcr.io/codehunters-io/ci-base-images:1.3.1-java-runtime
 COPY --from=build /src/build/libs/*.jar /app/app.jar
 EXPOSE 8080
 CMD ["java", "-jar", "/app/app.jar"]
@@ -258,12 +258,12 @@ it. `tini` is the entrypoint, so anything the app forks gets reaped.
 **Spring Boot on Java 25** — both stages move together:
 
 ```dockerfile
-FROM ghcr.io/codehunters-io/ci-base-images:1.3.0-jdk25 AS build
+FROM ghcr.io/codehunters-io/ci-base-images:1.3.1-jdk25 AS build
 WORKDIR /src
 COPY . .
 RUN ./gradlew bootJar --no-daemon --build-cache
 
-FROM ghcr.io/codehunters-io/ci-base-images:1.3.0-java25-runtime
+FROM ghcr.io/codehunters-io/ci-base-images:1.3.1-java25-runtime
 COPY --from=build /src/build/libs/*.jar /app/app.jar
 EXPOSE 8080
 CMD ["java", "-jar", "/app/app.jar"]
@@ -277,12 +277,12 @@ deploy.
 **GraalVM native binary** — build on GraalVM, ship on distroless:
 
 ```dockerfile
-FROM ghcr.io/codehunters-io/ci-base-images:1.3.0-graalvm AS build
+FROM ghcr.io/codehunters-io/ci-base-images:1.3.1-graalvm AS build
 WORKDIR /src
 COPY . .
 RUN ./gradlew nativeCompile --no-daemon --build-cache
 
-FROM ghcr.io/codehunters-io/ci-base-images:1.3.0-native-runtime
+FROM ghcr.io/codehunters-io/ci-base-images:1.3.1-native-runtime
 COPY --from=build /src/build/native/nativeCompile/app /app/app
 EXPOSE 8080
 ENTRYPOINT ["/app/app"]
@@ -298,14 +298,14 @@ unavailable in the final stage: everything must be done in the build stage.
 **Node service:**
 
 ```dockerfile
-FROM ghcr.io/codehunters-io/ci-base-images:1.3.0-node AS build
+FROM ghcr.io/codehunters-io/ci-base-images:1.3.1-node AS build
 WORKDIR /src
 COPY package*.json ./
 RUN npm ci
 COPY . .
 RUN npm run build && npm prune --omit=dev
 
-FROM ghcr.io/codehunters-io/ci-base-images:1.3.0-node-runtime
+FROM ghcr.io/codehunters-io/ci-base-images:1.3.1-node-runtime
 COPY --from=build /src/node_modules /app/node_modules
 COPY --from=build /src/dist /app/dist
 EXPOSE 3000
@@ -320,14 +320,14 @@ stage.
 **React/Vite static build:**
 
 ```dockerfile
-FROM ghcr.io/codehunters-io/ci-base-images:1.3.0-node AS build
+FROM ghcr.io/codehunters-io/ci-base-images:1.3.1-node AS build
 WORKDIR /src
 COPY package*.json ./
 RUN npm ci
 COPY . .
 RUN npm run build
 
-FROM ghcr.io/codehunters-io/ci-base-images:1.3.0-web-runtime
+FROM ghcr.io/codehunters-io/ci-base-images:1.3.1-web-runtime
 COPY --from=build /src/dist /usr/share/nginx/html
 ```
 
@@ -353,7 +353,7 @@ jobs:
   native-build:
     runs-on: ubuntu-latest
     container:
-      image: ghcr.io/codehunters-io/ci-base-images:1.3.0-graalvm
+      image: ghcr.io/codehunters-io/ci-base-images:1.3.1-graalvm
     steps:
       - uses: actions/checkout@v5
 
@@ -368,7 +368,7 @@ jobs:
   gateway-build:
     runs-on: ubuntu-latest
     container:
-      image: ghcr.io/codehunters-io/ci-base-images:1.3.0-krakend
+      image: ghcr.io/codehunters-io/ci-base-images:1.3.1-krakend
     steps:
       - uses: actions/checkout@v5
 
@@ -395,7 +395,7 @@ jobs:
   contracts:
     runs-on: ubuntu-latest
     container:
-      image: ghcr.io/codehunters-io/ci-base-images:1.3.0-node
+      image: ghcr.io/codehunters-io/ci-base-images:1.3.1-node
     steps:
       - uses: actions/checkout@v5
 
@@ -494,7 +494,7 @@ jobs:
 
 ```yaml
 container:
-  image: ghcr.io/codehunters-io/ci-base-images:1.3.0
+  image: ghcr.io/codehunters-io/ci-base-images:1.3.1
 ```
 
 Bumping that single pin in `ci-templates` rolls every `codehunters-ms-*` pipeline to
@@ -599,7 +599,7 @@ Inside `krakend-main-pipeline.yml`:
 
 ```yaml
 container:
-  image: ghcr.io/codehunters-io/ci-base-images:1.3.0-krakend
+  image: ghcr.io/codehunters-io/ci-base-images:1.3.1-krakend
 ```
 
 One pin bumps every KrakenD stage at once. The KrakenD CLI version and Go
@@ -916,18 +916,18 @@ does not concern you, which was already the rule.
 Semver. Cut a new release with:
 
 ```bash
-git tag -a v1.3.0 -m "Release v1.3.0"
-git push origin v1.3.0
+git tag -a v1.3.1 -m "Release v1.3.1"
+git push origin v1.3.1
 ```
 
 The git tag carries the `v`; the published image tags do not. `docker/metadata-action`
-strips it, so `v1.3.0` becomes `:1.3.0`.
+strips it, so `v1.3.1` becomes `:1.3.1`.
 
 The `build-publish.yml` workflow picks up the tag and publishes **all eleven
-variants** at the same semver — `:1.3.0`, `:1.3.0-jdk25`, `:1.3.0-graalvm`,
-`:1.3.0-graalvm25`, `:1.3.0-krakend`, `:1.3.0-node`, `:1.3.0-java-runtime`,
-`:1.3.0-java25-runtime`, `:1.3.0-node-runtime`, `:1.3.0-web-runtime`,
-`:1.3.0-native-runtime` — plus the matching `:1.3` and `:1` tags for each, and
+variants** at the same semver — `:1.3.1`, `:1.3.1-jdk25`, `:1.3.1-graalvm`,
+`:1.3.1-graalvm25`, `:1.3.1-krakend`, `:1.3.1-node`, `:1.3.1-java-runtime`,
+`:1.3.1-java25-runtime`, `:1.3.1-node-runtime`, `:1.3.1-web-runtime`,
+`:1.3.1-native-runtime` — plus the matching `:1.3` and `:1` tags for each, and
 `:sha-<short>` per variant.
 
 Rolling tags are **not** updated on tag pushes —

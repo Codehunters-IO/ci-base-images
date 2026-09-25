@@ -14,7 +14,13 @@ fi
 # package. Asking for `coreutils` makes microdnf try to swap them and it
 # refuses — "cannot install the best candidate for the job". The verify loop
 # below covers what we actually need from it.
-"${PM}" install -y \
+# --nodocs and no weak dependencies. Measured on the published graalvm image:
+# our own layer carried 20.7 MB of /usr/share/doc, 3.9 MB of man pages and
+# 19.4 MB of perl, the last of which arrives only as a weak dependency of
+# git. Nothing in a CI job reads a man page. Prevention rather than a later
+# `rm`: a deletion in a subsequent layer writes a whiteout and the bytes
+# still ship.
+"${PM}" install -y --nodocs --setopt=install_weak_deps=0 \
     ca-certificates \
     findutils \
     gawk \
