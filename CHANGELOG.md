@@ -7,6 +7,8 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [1.3.1] - 2026-09-24
+
 ### Changed
 - **The CI images stop shipping the Python bytecode they regenerate at build
   time.** `cleanup.sh` deleted `__pycache__`, and then `smoke-test.sh` ran
