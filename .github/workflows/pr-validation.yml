@@ -28,7 +28,7 @@ jobs:
     # Pinned, not @v1: a reusable workflow resolves at call time, so a floating
     # alias means any release of ci-templates changes what runs here without a
     # commit in this repository. Bumping this pin is a reviewable change.
-    uses: Codehunters-IO/ci-templates/.github/workflows/shared-validate-image-pr.yml@212e85796d4c9a646ce12f979df9f923e4d01582 # v1.5.0
+    uses: Codehunters-IO/ci-templates/.github/workflows/shared-validate-image-pr.yml@5c8483a4c9fe1b6d39b06f8b908d668154f5699c # v1.5.2
     with:
       # Both architectures, because Build & Publish pushes a manifest for both.
       # Validating only amd64 here is what let an arm64-only break reach main
