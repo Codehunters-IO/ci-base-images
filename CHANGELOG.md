@@ -7,6 +7,27 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Security
+- **The `graalvm` (JDK 21) image upgrades its Oracle Linux packages at build
+  time.** The `native-image-community:21` base ships Oracle Linux 9.3 and is
+  not refreshed on the errata cadence, so glibc, gnutls, libxml2, krb5 and the
+  rest aged in place: Trivy found 1 CRITICAL and 887 HIGH fixable findings in
+  the published image, and code scanning held 89 open alerts for it. After
+  the upgrade (OL 9.8, 107 packages) 6 HIGH remain, all outside the OS: the
+  same Jackson and buildx findings `graalvm25` already carries.
+
+  The upgrade enables `codeready_builder` for that one step, because
+  `glibc-static` and `libstdc++-static` live there and pin glibc to their exact
+  version; without it microdnf refuses to move glibc at all. A native-image
+  build, dynamic and with `StaticExecutableWithDynamicLibC`, still links and
+  runs.
+
+  It costs ~93 MB uncompressed on arm64 (728 MB to 820 MB): every upgraded
+  package is written again in our layer while the old copy stays in the base
+  layer. That is why it is opt-in (`OL_UPGRADE=1`) and `graalvm25` does not set
+  it: its base is OL 10.1, and upgrading it adds ~90 MB without removing a
+  single HIGH.
+
 ## [1.3.1] - 2026-09-24
 
 ### Changed
