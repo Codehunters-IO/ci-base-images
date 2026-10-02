@@ -39,9 +39,13 @@ COPY scripts/ /usr/local/bin/
 # installs the AWS CLI from the official bundle, which is a PyInstaller build
 # carrying its own precompiled interpreter and writes no __pycache__. Verified
 # on the published image - zero cache directories.
+#
+# OL_UPGRADE=1: this base ships Oracle Linux 9.3 and is not refreshed on the
+# errata cadence, so its OS packages must be upgraded here. See
+# install-base-packages-ol.sh for why it is opt-in.
 RUN set -eux; \
     chmod +x /usr/local/bin/*.sh; \
-    /usr/local/bin/install-base-packages.sh; \
+    OL_UPGRADE=1 /usr/local/bin/install-base-packages.sh; \
     /usr/local/bin/cleanup.sh
 
 RUN set -eux; \
