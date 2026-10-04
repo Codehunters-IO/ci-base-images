@@ -7,6 +7,40 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [1.3.2] - 2026-10-04
+
+### Security
+- **`node-runtime` patches two dependencies inside npm that npm has not
+  released yet.** npm bundles what it depends on, and 11.21.0, the last 11.x,
+  still carries brace-expansion 5.0.9 (CVE-2026-102276, CVE-2026-102278) and
+  undici 6.28.0 (CVE-2026-19534). Three fixable HIGH that failed the gate on
+  every pull request, with no lockfile in any consumer able to reach them.
+  Both are swapped in place for the newest release inside the range npm
+  itself declares (`minimatch` wants `^5.0.5`, `node-gyp` `^6.25.0`): now
+  5.0.12 and 6.29.0, 0 fixable CRITICAL/HIGH. Ranges rather than exact
+  versions, so a later npm 11 that ships something newer is not downgraded.
+  `npm ls -g` reports no invalid tree, and `npm install` still works.
+
+- **The `graalvm` (JDK 21) image upgrades its Oracle Linux packages at build
+  time.** The `native-image-community:21` base ships Oracle Linux 9.3 and is
+  not refreshed on the errata cadence, so glibc, gnutls, libxml2, krb5 and the
+  rest aged in place: Trivy found 1 CRITICAL and 887 HIGH fixable findings in
+  the published image, and code scanning held 89 open alerts for it. After
+  the upgrade (OL 9.8, 107 packages) 6 HIGH remain, all outside the OS: the
+  same Jackson and buildx findings `graalvm25` already carries.
+
+  The upgrade enables `codeready_builder` for that one step, because
+  `glibc-static` and `libstdc++-static` live there and pin glibc to their exact
+  version; without it microdnf refuses to move glibc at all. A native-image
+  build, dynamic and with `StaticExecutableWithDynamicLibC`, still links and
+  runs.
+
+  It costs ~93 MB uncompressed on arm64 (728 MB to 820 MB): every upgraded
+  package is written again in our layer while the old copy stays in the base
+  layer. That is why it is opt-in (`OL_UPGRADE=1`) and `graalvm25` does not set
+  it: its base is OL 10.1, and upgrading it adds ~90 MB without removing a
+  single HIGH.
+
 ## [1.3.1] - 2026-09-24
 
 ### Changed

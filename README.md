@@ -63,12 +63,12 @@ Multi-stage is the intended shape — build in the `ci` image, ship in the
 `runtime` one:
 
 ```dockerfile
-FROM ghcr.io/codehunters-io/ci-base-images:1.3.1 AS build
+FROM ghcr.io/codehunters-io/ci-base-images:1.3.2 AS build
 WORKDIR /src
 COPY . .
 RUN ./gradlew bootJar --no-daemon
 
-FROM ghcr.io/codehunters-io/ci-base-images:1.3.1-java-runtime
+FROM ghcr.io/codehunters-io/ci-base-images:1.3.2-java-runtime
 COPY --from=build /src/build/libs/*.jar /app/app.jar
 CMD ["java", "-jar", "/app/app.jar"]
 ```
@@ -173,12 +173,12 @@ Node variant (`-node` suffix):
 | `sha-<short>-node`      | Every build                                 | Reproducible debugging            |
 | `main-node`             | Push to `main`                              | Bleeding edge                     |
 
-**Production rule:** pin a semver tag (e.g. `:1.3.1`, `:1.3.1-graalvm`,
-`:1.3.1-java-runtime`). Never a rolling tag — `:latest`, `:graalvm`,
+**Production rule:** pin a semver tag (e.g. `:1.3.2`, `:1.3.2-graalvm`,
+`:1.3.2-java-runtime`). Never a rolling tag — `:latest`, `:graalvm`,
 `:node`, `:java-runtime` — in release or prod paths. All eleven variants are
 built from the same commit and share the same semver: pick the variant by
-suffix, the version by number. That includes the Java major — `:1.3.1` and
-`:1.3.1-jdk25` are the same release, built from the same commit, differing
+suffix, the version by number. That includes the Java major — `:1.3.2` and
+`:1.3.2-jdk25` are the same release, built from the same commit, differing
 only in the JDK they carry.
 
 ---
@@ -192,7 +192,7 @@ jobs:
   build:
     runs-on: ubuntu-latest
     container:
-      image: ghcr.io/codehunters-io/ci-base-images:1.3.1
+      image: ghcr.io/codehunters-io/ci-base-images:1.3.2
     steps:
       - uses: actions/checkout@v5
 
@@ -214,13 +214,13 @@ bump:
 
 | Stage        | From                  | To                            |
 |--------------|-----------------------|-------------------------------|
-| build / test | `:1.3.1`              | `:1.3.1-jdk25`                |
-| `nativeCompile` | `:1.3.1-graalvm`   | `:1.3.1-graalvm25`            |
-| app image    | `:1.3.1-java-runtime` | `:1.3.1-java25-runtime`       |
+| build / test | `:1.3.2`              | `:1.3.2-jdk25`                |
+| `nativeCompile` | `:1.3.2-graalvm`   | `:1.3.2-graalvm25`            |
+| app image    | `:1.3.2-java-runtime` | `:1.3.2-java25-runtime`       |
 
 ```yaml
     container:
-      image: ghcr.io/codehunters-io/ci-base-images:1.3.1-jdk25
+      image: ghcr.io/codehunters-io/ci-base-images:1.3.2-jdk25
 ```
 
 Move the build stage and the runtime stage together: a jar compiled with
@@ -238,12 +238,12 @@ traffic.
 **Spring Boot on Java 21** — the default, unsuffixed tag:
 
 ```dockerfile
-FROM ghcr.io/codehunters-io/ci-base-images:1.3.1 AS build
+FROM ghcr.io/codehunters-io/ci-base-images:1.3.2 AS build
 WORKDIR /src
 COPY . .
 RUN ./gradlew bootJar --no-daemon --build-cache
 
-FROM ghcr.io/codehunters-io/ci-base-images:1.3.1-java-runtime
+FROM ghcr.io/codehunters-io/ci-base-images:1.3.2-java-runtime
 COPY --from=build /src/build/libs/*.jar /app/app.jar
 EXPOSE 8080
 CMD ["java", "-jar", "/app/app.jar"]
@@ -258,12 +258,12 @@ it. `tini` is the entrypoint, so anything the app forks gets reaped.
 **Spring Boot on Java 25** — both stages move together:
 
 ```dockerfile
-FROM ghcr.io/codehunters-io/ci-base-images:1.3.1-jdk25 AS build
+FROM ghcr.io/codehunters-io/ci-base-images:1.3.2-jdk25 AS build
 WORKDIR /src
 COPY . .
 RUN ./gradlew bootJar --no-daemon --build-cache
 
-FROM ghcr.io/codehunters-io/ci-base-images:1.3.1-java25-runtime
+FROM ghcr.io/codehunters-io/ci-base-images:1.3.2-java25-runtime
 COPY --from=build /src/build/libs/*.jar /app/app.jar
 EXPOSE 8080
 CMD ["java", "-jar", "/app/app.jar"]
@@ -277,12 +277,12 @@ deploy.
 **GraalVM native binary** — build on GraalVM, ship on distroless:
 
 ```dockerfile
-FROM ghcr.io/codehunters-io/ci-base-images:1.3.1-graalvm AS build
+FROM ghcr.io/codehunters-io/ci-base-images:1.3.2-graalvm AS build
 WORKDIR /src
 COPY . .
 RUN ./gradlew nativeCompile --no-daemon --build-cache
 
-FROM ghcr.io/codehunters-io/ci-base-images:1.3.1-native-runtime
+FROM ghcr.io/codehunters-io/ci-base-images:1.3.2-native-runtime
 COPY --from=build /src/build/native/nativeCompile/app /app/app
 EXPOSE 8080
 ENTRYPOINT ["/app/app"]
@@ -298,14 +298,14 @@ unavailable in the final stage: everything must be done in the build stage.
 **Node service:**
 
 ```dockerfile
-FROM ghcr.io/codehunters-io/ci-base-images:1.3.1-node AS build
+FROM ghcr.io/codehunters-io/ci-base-images:1.3.2-node AS build
 WORKDIR /src
 COPY package*.json ./
 RUN npm ci
 COPY . .
 RUN npm run build && npm prune --omit=dev
 
-FROM ghcr.io/codehunters-io/ci-base-images:1.3.1-node-runtime
+FROM ghcr.io/codehunters-io/ci-base-images:1.3.2-node-runtime
 COPY --from=build /src/node_modules /app/node_modules
 COPY --from=build /src/dist /app/dist
 EXPOSE 3000
@@ -320,14 +320,14 @@ stage.
 **React/Vite static build:**
 
 ```dockerfile
-FROM ghcr.io/codehunters-io/ci-base-images:1.3.1-node AS build
+FROM ghcr.io/codehunters-io/ci-base-images:1.3.2-node AS build
 WORKDIR /src
 COPY package*.json ./
 RUN npm ci
 COPY . .
 RUN npm run build
 
-FROM ghcr.io/codehunters-io/ci-base-images:1.3.1-web-runtime
+FROM ghcr.io/codehunters-io/ci-base-images:1.3.2-web-runtime
 COPY --from=build /src/dist /usr/share/nginx/html
 ```
 
@@ -353,7 +353,7 @@ jobs:
   native-build:
     runs-on: ubuntu-latest
     container:
-      image: ghcr.io/codehunters-io/ci-base-images:1.3.1-graalvm
+      image: ghcr.io/codehunters-io/ci-base-images:1.3.2-graalvm
     steps:
       - uses: actions/checkout@v5
 
@@ -368,7 +368,7 @@ jobs:
   gateway-build:
     runs-on: ubuntu-latest
     container:
-      image: ghcr.io/codehunters-io/ci-base-images:1.3.1-krakend
+      image: ghcr.io/codehunters-io/ci-base-images:1.3.2-krakend
     steps:
       - uses: actions/checkout@v5
 
@@ -395,7 +395,7 @@ jobs:
   contracts:
     runs-on: ubuntu-latest
     container:
-      image: ghcr.io/codehunters-io/ci-base-images:1.3.1-node
+      image: ghcr.io/codehunters-io/ci-base-images:1.3.2-node
     steps:
       - uses: actions/checkout@v5
 
@@ -494,7 +494,7 @@ jobs:
 
 ```yaml
 container:
-  image: ghcr.io/codehunters-io/ci-base-images:1.3.1
+  image: ghcr.io/codehunters-io/ci-base-images:1.3.2
 ```
 
 Bumping that single pin in `ci-templates` rolls every `codehunters-ms-*` pipeline to
@@ -599,7 +599,7 @@ Inside `krakend-main-pipeline.yml`:
 
 ```yaml
 container:
-  image: ghcr.io/codehunters-io/ci-base-images:1.3.1-krakend
+  image: ghcr.io/codehunters-io/ci-base-images:1.3.2-krakend
 ```
 
 One pin bumps every KrakenD stage at once. The KrakenD CLI version and Go
@@ -644,6 +644,10 @@ On glibc the official AWS bundle runs natively, so this is the one variant that
 installs it. It is pinned (`AWS_CLI_VERSION`) rather than tracking `latest`, so
 a rebuild reproduces the same artifact, and its signature is checked — see
 [AWS CLI integrity](#aws-cli-integrity).
+
+The JDK 21 base is not refreshed on the Oracle Linux errata cadence: it still
+ships OL 9.3, so this variant upgrades its OS packages at build time — see
+[Patching what upstream leaves stale](#patching-what-upstream-leaves-stale).
 
 | Candidate                                       | Reason rejected                                   |
 |-------------------------------------------------|---------------------------------------------------|
@@ -808,7 +812,7 @@ images/
     jdk/Dockerfile          #   Temurin 21 (Alpine/musl)
     jdk25/Dockerfile        #   Temurin 25 (Alpine/musl)
     graalvm/Dockerfile      #   GraalVM CE for JDK 21 (Oracle Linux 9 / glibc)
-    graalvm25/Dockerfile    #   GraalVM CE for JDK 25 (Oracle Linux 9 / glibc)
+    graalvm25/Dockerfile    #   GraalVM CE for JDK 25 (Oracle Linux 10 / glibc)
     krakend/Dockerfile      #   alpine + multi-stage COPY of krakend + golang
     node/Dockerfile         #   Node 20 (Alpine/musl) + npm + corepack + node-gyp deps
   runtime/                  # be the base of your app image. non-root, no toolchain.
@@ -916,18 +920,18 @@ does not concern you, which was already the rule.
 Semver. Cut a new release with:
 
 ```bash
-git tag -a v1.3.1 -m "Release v1.3.1"
-git push origin v1.3.1
+git tag -a v1.3.2 -m "Release v1.3.2"
+git push origin v1.3.2
 ```
 
 The git tag carries the `v`; the published image tags do not. `docker/metadata-action`
-strips it, so `v1.3.1` becomes `:1.3.1`.
+strips it, so `v1.3.2` becomes `:1.3.2`.
 
 The `build-publish.yml` workflow picks up the tag and publishes **all eleven
-variants** at the same semver — `:1.3.1`, `:1.3.1-jdk25`, `:1.3.1-graalvm`,
-`:1.3.1-graalvm25`, `:1.3.1-krakend`, `:1.3.1-node`, `:1.3.1-java-runtime`,
-`:1.3.1-java25-runtime`, `:1.3.1-node-runtime`, `:1.3.1-web-runtime`,
-`:1.3.1-native-runtime` — plus the matching `:1.3` and `:1` tags for each, and
+variants** at the same semver — `:1.3.2`, `:1.3.2-jdk25`, `:1.3.2-graalvm`,
+`:1.3.2-graalvm25`, `:1.3.2-krakend`, `:1.3.2-node`, `:1.3.2-java-runtime`,
+`:1.3.2-java25-runtime`, `:1.3.2-node-runtime`, `:1.3.2-web-runtime`,
+`:1.3.2-native-runtime` — plus the matching `:1.3` and `:1` tags for each, and
 `:sha-<short>` per variant.
 
 Rolling tags are **not** updated on tag pushes —
@@ -966,6 +970,31 @@ containerised CI jobs — and must **never** be a runtime base for application
 containers. The `runtime/` images are the supported base for that: non-root,
 no build toolchain, no Docker or AWS CLI. Reports of vulnerabilities:
 andresmontoyat@gmail.com.
+
+### Patching what upstream leaves stale
+
+Every base is pinned by digest, which keeps a build reproducible and also
+freezes whatever the base shipped with. Trivy gates each image on fixable
+advisories (`CRITICAL` for `ci/`, `CRITICAL,HIGH` for `runtime/`) at PR time,
+at publish time and in a weekly rescan of the published tags. When a fix exists
+but the base has not picked it up, the image applies it itself:
+
+| Image | Upstream gap | What the image does |
+|---|---|---|
+| `graalvm` | `native-image-community:21` ships Oracle Linux 9.3 and is not rebuilt on errata | `OL_UPGRADE=1`: `microdnf upgrade` before installing, with `codeready_builder` enabled for that step because `glibc-static` and `libstdc++-static` live there and pin glibc |
+| `java-runtime`, `java25-runtime`, `node-runtime`, `web-runtime` | The upstream tag lags its Alpine branch between rebuilds | `apk upgrade` |
+| `node-runtime` | npm bundles its own dependencies, and Node 20 ships npm 10 | npm 11, then `NPM_PATCHES` swaps bundled packages npm has not released a fix for, within the range npm itself declares |
+
+Each one costs bytes or drift, so it is applied only where it removes findings:
+an upgraded package is written again in the image's own layer while the old
+copy still ships in the base. On `graalvm` that is ~90 MB for 1 CRITICAL and
+887 HIGH; on `graalvm25`, whose OL 10.1 base is current enough, it would be the
+same ~90 MB for none, so it is off there. An `NPM_PATCHES` entry is dropped
+once `npm ls -g` shows npm bundling a version past its floor.
+
+An advisory that cannot be fixed this way goes in `.trivyignore.yaml`, with a
+reason and an `expired_at` after which the gate reports it again. The file is
+empty today.
 
 ### AWS CLI integrity
 
