@@ -7,6 +7,8 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [1.3.2] - 2026-10-04
+
 ### Security
 - **`node-runtime` patches two dependencies inside npm that npm has not
   released yet.** npm bundles what it depends on, and 11.21.0, the last 11.x,
