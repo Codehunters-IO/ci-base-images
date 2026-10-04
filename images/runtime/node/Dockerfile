@@ -20,10 +20,28 @@ FROM node:20.20.2-alpine@sha256:fb4cd12c85ee03686f6af5362a0b0d56d50c58a04632e6c0
 # the contract. Floating within 11.x is deliberate, same trade as apk upgrade.
 #
 # Together: 24 fixable CRITICAL/HIGH -> 0.
+#
+# NPM_PATCHES: npm bundles its dependencies, so a fix upstream reaches this image
+# only when npm cuts a release with it. 11.21.0, the last 11.x, still ships
+# brace-expansion 5.0.9 (CVE-2026-102276, CVE-2026-102278) and undici 6.28.0
+# (CVE-2026-19534). Each is swapped in place for the newest release inside the
+# range npm itself declares (minimatch wants ^5.0.5, node-gyp ^6.25.0), so npm
+# sees nothing it did not ask for. Ranges, not exact versions: once an npm 11
+# ships something newer, a pinned patch would downgrade it. Drop an entry when
+# `npm ls -g` shows the bundled version already past its floor.
+ARG NPM_PATCHES="brace-expansion@^5.0.11 undici@^6.28.1"
 RUN set -eux; \
     apk upgrade --no-cache; \
     apk add --no-cache tini tzdata ca-certificates; \
     npm install -g npm@11; \
+    npm_modules=/usr/local/lib/node_modules/npm/node_modules; \
+    for spec in ${NPM_PATCHES}; do \
+        name="${spec%@*}"; \
+        tgz="$(npm pack "${spec}" --silent --pack-destination /tmp)"; \
+        rm -rf "${npm_modules:?}/${name}"; \
+        mkdir "${npm_modules}/${name}"; \
+        tar -xzf "/tmp/${tgz}" -C "${npm_modules}/${name}" --strip-components=1; \
+    done; \
     npm cache clean --force; \
     rm -rf /root/.npm /tmp/*; \
     mkdir -p /app; \

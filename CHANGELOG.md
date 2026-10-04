@@ -8,6 +8,17 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ## [Unreleased]
 
 ### Security
+- **`node-runtime` patches two dependencies inside npm that npm has not
+  released yet.** npm bundles what it depends on, and 11.21.0, the last 11.x,
+  still carries brace-expansion 5.0.9 (CVE-2026-102276, CVE-2026-102278) and
+  undici 6.28.0 (CVE-2026-19534). Three fixable HIGH that failed the gate on
+  every pull request, with no lockfile in any consumer able to reach them.
+  Both are swapped in place for the newest release inside the range npm
+  itself declares (`minimatch` wants `^5.0.5`, `node-gyp` `^6.25.0`): now
+  5.0.12 and 6.29.0, 0 fixable CRITICAL/HIGH. Ranges rather than exact
+  versions, so a later npm 11 that ships something newer is not downgraded.
+  `npm ls -g` reports no invalid tree, and `npm install` still works.
+
 - **The `graalvm` (JDK 21) image upgrades its Oracle Linux packages at build
   time.** The `native-image-community:21` base ships Oracle Linux 9.3 and is
   not refreshed on the errata cadence, so glibc, gnutls, libxml2, krb5 and the
