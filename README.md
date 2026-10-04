@@ -645,6 +645,10 @@ installs it. It is pinned (`AWS_CLI_VERSION`) rather than tracking `latest`, so
 a rebuild reproduces the same artifact, and its signature is checked — see
 [AWS CLI integrity](#aws-cli-integrity).
 
+The JDK 21 base is not refreshed on the Oracle Linux errata cadence: it still
+ships OL 9.3, so this variant upgrades its OS packages at build time — see
+[Patching what upstream leaves stale](#patching-what-upstream-leaves-stale).
+
 | Candidate                                       | Reason rejected                                   |
 |-------------------------------------------------|---------------------------------------------------|
 | `container-registry.oracle.com/graalvm/jdk:21`  | Commercial Oracle GraalVM; licence restrictions   |
@@ -808,7 +812,7 @@ images/
     jdk/Dockerfile          #   Temurin 21 (Alpine/musl)
     jdk25/Dockerfile        #   Temurin 25 (Alpine/musl)
     graalvm/Dockerfile      #   GraalVM CE for JDK 21 (Oracle Linux 9 / glibc)
-    graalvm25/Dockerfile    #   GraalVM CE for JDK 25 (Oracle Linux 9 / glibc)
+    graalvm25/Dockerfile    #   GraalVM CE for JDK 25 (Oracle Linux 10 / glibc)
     krakend/Dockerfile      #   alpine + multi-stage COPY of krakend + golang
     node/Dockerfile         #   Node 20 (Alpine/musl) + npm + corepack + node-gyp deps
   runtime/                  # be the base of your app image. non-root, no toolchain.
@@ -966,6 +970,31 @@ containerised CI jobs — and must **never** be a runtime base for application
 containers. The `runtime/` images are the supported base for that: non-root,
 no build toolchain, no Docker or AWS CLI. Reports of vulnerabilities:
 andresmontoyat@gmail.com.
+
+### Patching what upstream leaves stale
+
+Every base is pinned by digest, which keeps a build reproducible and also
+freezes whatever the base shipped with. Trivy gates each image on fixable
+advisories (`CRITICAL` for `ci/`, `CRITICAL,HIGH` for `runtime/`) at PR time,
+at publish time and in a weekly rescan of the published tags. When a fix exists
+but the base has not picked it up, the image applies it itself:
+
+| Image | Upstream gap | What the image does |
+|---|---|---|
+| `graalvm` | `native-image-community:21` ships Oracle Linux 9.3 and is not rebuilt on errata | `OL_UPGRADE=1`: `microdnf upgrade` before installing, with `codeready_builder` enabled for that step because `glibc-static` and `libstdc++-static` live there and pin glibc |
+| `java-runtime`, `java25-runtime`, `node-runtime`, `web-runtime` | The upstream tag lags its Alpine branch between rebuilds | `apk upgrade` |
+| `node-runtime` | npm bundles its own dependencies, and Node 20 ships npm 10 | npm 11, then `NPM_PATCHES` swaps bundled packages npm has not released a fix for, within the range npm itself declares |
+
+Each one costs bytes or drift, so it is applied only where it removes findings:
+an upgraded package is written again in the image's own layer while the old
+copy still ships in the base. On `graalvm` that is ~90 MB for 1 CRITICAL and
+887 HIGH; on `graalvm25`, whose OL 10.1 base is current enough, it would be the
+same ~90 MB for none, so it is off there. An `NPM_PATCHES` entry is dropped
+once `npm ls -g` shows npm bundling a version past its floor.
+
+An advisory that cannot be fixed this way goes in `.trivyignore.yaml`, with a
+reason and an `expired_at` after which the gate reports it again. The file is
+empty today.
 
 ### AWS CLI integrity
 
