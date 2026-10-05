@@ -7,6 +7,8 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [1.3.3] - 2026-10-05
+
 ### Security
 - **The Alpine CI images run `apk upgrade` before installing.** The runtime
   images always did; the CI ones (`jdk`, `jdk25`, `node`, `krakend`) did not,
@@ -16,6 +18,12 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - **The `node` CI image carries the same `NPM_PATCHES` as `node-runtime`**:
   brace-expansion and undici swapped inside npm 11 for releases it has not
   bundled yet. `check-pins.sh` now fails if the two lists drift apart.
+
+### Changed
+- Base digests moved by Dependabot: `eclipse-temurin` for `ci/jdk` and
+  `runtime/java`, `nginx` for `runtime/web`. Same tags, newer builds.
+- The ci-templates reusable workflows are pinned to v1.5.2 (from v1.5.0):
+  action version bumps only, no change to what the gates check.
 
 ## [1.3.2] - 2026-10-04
 
