@@ -7,6 +7,8 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [1.3.3] - 2026-10-05
+
 ### Security
 - **The Alpine CI images run `apk upgrade` before installing.** The runtime
   images always did; the CI ones (`jdk`, `jdk25`, `node`, `krakend`) did not,
