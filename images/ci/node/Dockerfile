@@ -62,8 +62,21 @@ RUN set -eux; \
 # tar (CVE-2026-59873). It sits in npm's node_modules, so no consumer
 # lockfile reaches it. npm@11 and not npm@latest: npm 12 wants node
 # ^22.22.2, and the Node major here follows the consumers.
+#
+# NPM_PATCHES: npm 11 has not released fixes that its bundled dependencies
+# already have. Same list, same reasoning and same range rule as
+# images/runtime/node/Dockerfile; keep the two in step.
+ARG NPM_PATCHES="brace-expansion@^5.0.11 undici@^6.28.1"
 RUN set -eux; \
     npm install -g npm@11; \
+    npm_modules=/usr/local/lib/node_modules/npm/node_modules; \
+    for spec in ${NPM_PATCHES}; do \
+        name="${spec%@*}"; \
+        tgz="$(npm pack "${spec}" --silent --pack-destination /tmp)"; \
+        rm -rf "${npm_modules:?}/${name}"; \
+        mkdir "${npm_modules}/${name}"; \
+        tar -xzf "/tmp/${tgz}" -C "${npm_modules}/${name}" --strip-components=1; \
+    done; \
     npm cache clean --force; \
     /usr/local/bin/cleanup.sh
 
