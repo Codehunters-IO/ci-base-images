@@ -68,6 +68,14 @@ check_arg_matches_from images/ci/krakend/Dockerfile KRAKEND_VERSION krakend
 check_arg_matches_from images/ci/krakend/Dockerfile GO_VERSION     golang
 check_arg_matches_from images/ci/node/Dockerfile    NODE_VERSION   node
 
+# 4 — NPM_PATCHES is the same list wherever it is declared. Both Node images
+#     install the same npm@11 over the same Node 20, so a patch dropped from
+#     one and not the other means one ships a CVE the other fixed.
+npm_patches=$(grep -rh --include=Dockerfile '^ARG NPM_PATCHES=' images | sort -u)
+if [ "$(printf '%s' "${npm_patches}" | grep -c '')" -gt 1 ]; then
+    note "NPM_PATCHES differs between Dockerfiles: $(printf '%s' "${npm_patches}" | tr '\n' '|')"
+fi
+
 if [ "${fail}" -ne 0 ]; then
     echo "" >&2
     echo "Pin consistency check FAILED." >&2
