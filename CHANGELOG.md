@@ -7,6 +7,15 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Changed
+- **Only the two newest releases stay published.** `cleanup-packages.yml`
+  moves to ci-templates v1.7.0 and sets `keep_releases: 2`: older releases,
+  their `X.Y` / `X` aliases and every `sha-<short>` build tag are deleted from
+  GHCR with their whole image. Rolling tags are untouched. A consumer pinned
+  to a deleted release fails on `docker pull`; the README's "Supported
+  releases" section states the window and how to stay inside it. The weekly
+  run still only reports; deleting is a manual dispatch.
+
 ## [1.3.3] - 2026-10-05
 
 ### Security
