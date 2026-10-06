@@ -181,8 +181,9 @@ suffix, the version by number. That includes the Java major — `:1.3.3` and
 `:1.3.3-jdk25` are the same release, built from the same commit, differing
 only in the JDK they carry.
 
-Only the two newest releases stay published — see
-[Supported releases](#supported-releases). A pin older than that stops pulling.
+Only the newest release stays published — see
+[Supported releases](#supported-releases). An exact pin stops pulling once the
+next release ships.
 
 ---
 
@@ -829,7 +830,7 @@ images/
   pr-validation.yml         #   shared-validate-image-pr      (lint, gate, build, scan)
   build-publish.yml         #   shared-build-publish-image    (publish multi-arch + SBOM)
   security-scan.yml         #   shared-scan-published-images  (weekly rescan of the tags)
-  cleanup-packages.yml      #   shared-cleanup-packages       (prune untagged versions, keep 2 releases)
+  cleanup-packages.yml      #   shared-cleanup-packages       (prune untagged versions, keep 1 release)
 scripts/                    # install + smoke scripts, dispatched per package manager
   install-base-packages.sh           # dispatcher
   install-base-packages-alpine.sh    #   apk path
@@ -872,7 +873,7 @@ workflows in [`Codehunters-IO/ci-templates`](https://github.com/Codehunters-IO/c
 | `pr-validation.yml` | `shared-validate-image-pr` | hadolint, ShellCheck, `check-pins.sh`, then build + smoke + CVE gate per image per architecture |
 | `build-publish.yml` | `shared-build-publish-image` | publish multi-arch manifests with SBOM and provenance |
 | `security-scan.yml` | `shared-scan-published-images` | weekly rescan of the tags consumers pull |
-| `cleanup-packages.yml` | `shared-cleanup-packages` | prune untagged GHCR versions and releases older than the last two |
+| `cleanup-packages.yml` | `shared-cleanup-packages` | prune untagged GHCR versions and every release but the newest |
 
 The image list appears in three of them rather than once, because a pull
 request, a publish and a rescan need different fields — a Dockerfile path, a tag
@@ -957,27 +958,33 @@ only on `main` pushes.
 
 ### Supported releases
 
-**The current release and the one before it.** Older releases are deleted from
-GHCR, all eleven variants, together with their `X.Y` / `X` aliases and every
-`sha-<short>` build tag. Once a release is deleted, a pipeline pinned to it
-fails on `docker pull` with `manifest unknown`.
+**The current release only.** When a release ships, the one before it is
+deleted from GHCR, all eleven variants, together with its `X.Y` / `X` aliases
+and every `sha-<short>` build tag. Once a release is deleted, a pipeline
+pinned to it fails on `docker pull` with `manifest unknown`.
 
 | Kept | Deleted |
 |---|---|
-| The two newest `X.Y.Z` and their variants | Every older `X.Y.Z[-variant]` |
-| `X.Y` / `X` aliases a kept release shares | Aliases of deleted releases only |
+| The newest `X.Y.Z` and its variants | Every older `X.Y.Z[-variant]` |
+| `X.Y` / `X` aliases the newest release carries | Aliases of deleted releases |
 | Rolling tags (`latest`, `graalvm`, `main-*`…) | `sha-<short>` build tags |
 
-A deleted version cannot be restored, so a release lives at least until the
-next one after it ships. Two ways to stay inside the window:
+A deleted version cannot be restored, and with one release kept there is no
+overlap: an exact pin breaks on the first cleanup after the next release. Pin
+an alias instead:
 
-- Pin `:X.Y.Z` and move it whenever a release ships. In a Dockerfile `FROM`,
-  Dependabot's `docker` ecosystem opens that PR for you; a workflow's
-  `container:` line it does not update, so that one is on you.
-- Pin `:X.Y` (e.g. `:1.3`) to receive patches without editing anything. It
-  moves within a minor, so a patch reaches you on your next pull.
+| Pin | Survives | Breaks when |
+|---|---|---|
+| `:1` (or `:1-graalvm`…) | every 1.x release | 2.0.0 ships — a major is a breaking change anyway |
+| `:1.3` | patches | 1.4.0 ships: `1.3` no longer belongs to the newest release |
+| `:1.3.3` | nothing | 1.3.4 ships |
 
-`cleanup-packages.yml` enforces this (`keep_releases: 2`). Its weekly run only
+An alias moves on your next pull, so the build changes without a commit on
+your side. That is the trade for not breaking: if a pipeline needs a frozen
+image, pin the digest it ran with (`@sha256:…`) for as long as that release is
+current, and expect to move it.
+
+`cleanup-packages.yml` enforces this (`keep_releases: 1`). Its weekly run only
 reports; deleting is a manual dispatch with `dry_run` off, after reading the
 plan in the job summary.
 
