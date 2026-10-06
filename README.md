@@ -181,6 +181,9 @@ suffix, the version by number. That includes the Java major — `:1.3.3` and
 `:1.3.3-jdk25` are the same release, built from the same commit, differing
 only in the JDK they carry.
 
+Only the two newest releases stay published — see
+[Supported releases](#supported-releases). A pin older than that stops pulling.
+
 ---
 
 ## Usage in a consumer workflow
@@ -826,7 +829,7 @@ images/
   pr-validation.yml         #   shared-validate-image-pr      (lint, gate, build, scan)
   build-publish.yml         #   shared-build-publish-image    (publish multi-arch + SBOM)
   security-scan.yml         #   shared-scan-published-images  (weekly rescan of the tags)
-  cleanup-packages.yml      #   shared-cleanup-packages       (prune untagged versions)
+  cleanup-packages.yml      #   shared-cleanup-packages       (prune untagged versions, keep 2 releases)
 scripts/                    # install + smoke scripts, dispatched per package manager
   install-base-packages.sh           # dispatcher
   install-base-packages-alpine.sh    #   apk path
@@ -869,7 +872,7 @@ workflows in [`Codehunters-IO/ci-templates`](https://github.com/Codehunters-IO/c
 | `pr-validation.yml` | `shared-validate-image-pr` | hadolint, ShellCheck, `check-pins.sh`, then build + smoke + CVE gate per image per architecture |
 | `build-publish.yml` | `shared-build-publish-image` | publish multi-arch manifests with SBOM and provenance |
 | `security-scan.yml` | `shared-scan-published-images` | weekly rescan of the tags consumers pull |
-| `cleanup-packages.yml` | `shared-cleanup-packages` | prune untagged GHCR versions |
+| `cleanup-packages.yml` | `shared-cleanup-packages` | prune untagged GHCR versions and releases older than the last two |
 
 The image list appears in three of them rather than once, because a pull
 request, a publish and a rescan need different fields — a Dockerfile path, a tag
@@ -951,6 +954,32 @@ only on `main` pushes.
 | Adding a pre-installed tool                             | minor |
 | Gradle / AWS CLI / KrakenD / Go minor/patch upgrades    | minor |
 | Internal script refactor, base image patch refresh      | patch |
+
+### Supported releases
+
+**The current release and the one before it.** Older releases are deleted from
+GHCR, all eleven variants, together with their `X.Y` / `X` aliases and every
+`sha-<short>` build tag. Once a release is deleted, a pipeline pinned to it
+fails on `docker pull` with `manifest unknown`.
+
+| Kept | Deleted |
+|---|---|
+| The two newest `X.Y.Z` and their variants | Every older `X.Y.Z[-variant]` |
+| `X.Y` / `X` aliases a kept release shares | Aliases of deleted releases only |
+| Rolling tags (`latest`, `graalvm`, `main-*`…) | `sha-<short>` build tags |
+
+A deleted version cannot be restored, so a release lives at least until the
+next one after it ships. Two ways to stay inside the window:
+
+- Pin `:X.Y.Z` and move it whenever a release ships. In a Dockerfile `FROM`,
+  Dependabot's `docker` ecosystem opens that PR for you; a workflow's
+  `container:` line it does not update, so that one is on you.
+- Pin `:X.Y` (e.g. `:1.3`) to receive patches without editing anything. It
+  moves within a minor, so a patch reaches you on your next pull.
+
+`cleanup-packages.yml` enforces this (`keep_releases: 2`). Its weekly run only
+reports; deleting is a manual dispatch with `dry_run` off, after reading the
+plan in the job summary.
 
 ---
 

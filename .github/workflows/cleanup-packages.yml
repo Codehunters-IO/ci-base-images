@@ -12,6 +12,12 @@
 # them and broken `docker pull` on every tag in the package. v1.3.1 also keeps
 # retention on image boundaries, so what it does keep is whole.
 #
+# Releases are pruned too: only the two newest semver releases are kept
+# (keep_releases, ci-templates v1.7.0). Older releases, their X.Y / X aliases
+# and every sha-* build tag are retired with their whole image. Rolling tags
+# and anything unrecognised are never touched. A consumer pinned to a retired
+# release fails on its next pull, which is why the README states the window.
+#
 # The scheduled run only ever reports. Deleting means dispatching this by hand
 # with dry_run unchecked, after reading the plan.
 name: Cleanup Packages
@@ -36,8 +42,11 @@ jobs:
     # Pinned, not @main: a reusable workflow resolves at call time, so an
     # unpinned ref means any push to ci-templates changes what runs here
     # with packages: write, without a commit in this repository.
-    uses: Codehunters-IO/ci-templates/.github/workflows/shared-cleanup-packages.yml@5c8483a4c9fe1b6d39b06f8b908d668154f5699c # v1.5.2
+    uses: Codehunters-IO/ci-templates/.github/workflows/shared-cleanup-packages.yml@0b3c1c80061012d6a661d7c06fae9b37e8b04de2 # v1.7.0
     with:
+      # The current release and the one before it. Consumers pin one of those
+      # or a rolling tag; see "Supported releases" in the README.
+      keep_releases: 2
       # Safe regardless of this value: anything a tag can reach, which is the
       # tagged manifest lists and every platform and attestation manifest under
       # them. Being untagged is not enough to be deleted.
