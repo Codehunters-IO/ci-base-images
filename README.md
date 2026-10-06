@@ -17,7 +17,7 @@ six for CI, five for runtime:
 | **KrakenD**     | `-krakend`    | `alpine:3.24` + `krakend` + `golang`    | musl  | ~700 MB     | `codehunters-gw-krakend` gateway pipelines      |
 | **Node**        | `-node`       | `node:20.20.2-alpine`                   | musl  | ~210 MB     | Hardhat/Solidity + TypeScript SDK pipelines |
 
-> **Java 21 is still the default.** The unsuffixed tags — `:latest`, `:vX.Y.Z` —
+> **Java 21 is still the default.** The unsuffixed tags — `:latest`, `:1`, `:X.Y.Z` —
 > remain JDK 21, and nothing pinning them changes. Java 25 is opt-in per
 > repository by moving to the `-jdk25` / `-java25-runtime` / `-graalvm25`
 > suffix. Both majors are built from the same commit and share the same semver,
@@ -63,12 +63,12 @@ Multi-stage is the intended shape — build in the `ci` image, ship in the
 `runtime` one:
 
 ```dockerfile
-FROM ghcr.io/codehunters-io/ci-base-images:1.3.3 AS build
+FROM ghcr.io/codehunters-io/ci-base-images:1 AS build
 WORKDIR /src
 COPY . .
 RUN ./gradlew bootJar --no-daemon
 
-FROM ghcr.io/codehunters-io/ci-base-images:1.3.3-java-runtime
+FROM ghcr.io/codehunters-io/ci-base-images:1-java-runtime
 COPY --from=build /src/build/libs/*.jar /app/app.jar
 CMD ["java", "-jar", "/app/app.jar"]
 ```
@@ -123,10 +123,10 @@ JDK variant (default — no suffix):
 
 | Tag                  | Trigger                                    | Use case                  |
 |----------------------|--------------------------------------------|---------------------------|
-| `vX.Y.Z`             | Git tag `v*`                                | Production pipelines (PIN)|
-| `vX.Y`, `vX`         | Git tag `v*` (rolling minor/major)         | Tolerant rolling updates  |
+| `X`, `X.Y` | Git tag `v*` (moves with each release) | Production pipelines (PIN) |
+| `X.Y.Z` | Git tag `v*` | One exact release; deleted when the next ships |
 | `latest`             | Push to `main`                              | Development pipelines     |
-| `sha-<short>`        | Every build                                 | Reproducible debugging    |
+| `sha-<short>`        | Every build                                 | Debugging; deleted with its release |
 | `main`               | Push to `main`                              | Bleeding edge             |
 
 JDK 25 variant (`-jdk25` suffix) — identical tag shape, `jdk25` in place of
@@ -134,10 +134,10 @@ JDK 25 variant (`-jdk25` suffix) — identical tag shape, `jdk25` in place of
 
 | Tag                     | Trigger                                    | Use case                          |
 |-------------------------|--------------------------------------------|-----------------------------------|
-| `vX.Y.Z-jdk25`          | Git tag `v*`                                | Production pipelines on JDK 25 (PIN) |
-| `vX.Y-jdk25`, `vX-jdk25`| Git tag `v*`                                | Tolerant rolling updates          |
+| `X-jdk25`, `X.Y-jdk25` | Git tag `v*` (moves with each release) | Production pipelines on JDK 25 (PIN) |
+| `X.Y.Z-jdk25` | Git tag `v*` | One exact release; deleted when the next ships |
 | `jdk25`                 | Push to `main`                              | Development pipelines on JDK 25   |
-| `sha-<short>-jdk25`     | Every build                                 | Reproducible debugging            |
+| `sha-<short>-jdk25`     | Every build                                 | Debugging; deleted with its release |
 | `main-jdk25`            | Push to `main`                              | Bleeding edge                     |
 
 The `-graalvm25` and `-java25-runtime` variants follow the same shape, with
@@ -147,43 +147,43 @@ GraalVM variant (`-graalvm` suffix):
 
 | Tag                     | Trigger                                    | Use case                          |
 |-------------------------|--------------------------------------------|-----------------------------------|
-| `vX.Y.Z-graalvm`        | Git tag `v*`                                | Production native-image pipelines |
-| `vX.Y-graalvm`, `vX-graalvm` | Git tag `v*`                          | Tolerant rolling updates          |
+| `X-graalvm`, `X.Y-graalvm` | Git tag `v*` (moves with each release) | Production native-image pipelines (PIN) |
+| `X.Y.Z-graalvm` | Git tag `v*` | One exact release; deleted when the next ships |
 | `graalvm`               | Push to `main`                              | Development native-image pipelines|
-| `sha-<short>-graalvm`   | Every build                                 | Reproducible debugging            |
+| `sha-<short>-graalvm`   | Every build                                 | Debugging; deleted with its release |
 | `main-graalvm`          | Push to `main`                              | Bleeding edge                     |
 
 KrakenD variant (`-krakend` suffix):
 
 | Tag                     | Trigger                                    | Use case                          |
 |-------------------------|--------------------------------------------|-----------------------------------|
-| `vX.Y.Z-krakend`        | Git tag `v*`                                | Production gateway pipelines      |
-| `vX.Y-krakend`, `vX-krakend` | Git tag `v*`                          | Tolerant rolling updates          |
+| `X-krakend`, `X.Y-krakend` | Git tag `v*` (moves with each release) | Production gateway pipelines (PIN) |
+| `X.Y.Z-krakend` | Git tag `v*` | One exact release; deleted when the next ships |
 | `krakend`               | Push to `main`                              | Development gateway pipelines     |
-| `sha-<short>-krakend`   | Every build                                 | Reproducible debugging            |
+| `sha-<short>-krakend`   | Every build                                 | Debugging; deleted with its release |
 | `main-krakend`          | Push to `main`                              | Bleeding edge                     |
 
 Node variant (`-node` suffix):
 
 | Tag                     | Trigger                                    | Use case                          |
 |-------------------------|--------------------------------------------|-----------------------------------|
-| `vX.Y.Z-node`           | Git tag `v*`                                | Production contract pipelines     |
-| `vX.Y-node`, `vX-node`  | Git tag `v*`                                | Tolerant rolling updates          |
+| `X-node`, `X.Y-node` | Git tag `v*` (moves with each release) | Production contract pipelines (PIN) |
+| `X.Y.Z-node` | Git tag `v*` | One exact release; deleted when the next ships |
 | `node`                  | Push to `main`                              | Development contract pipelines    |
-| `sha-<short>-node`      | Every build                                 | Reproducible debugging            |
+| `sha-<short>-node`      | Every build                                 | Debugging; deleted with its release |
 | `main-node`             | Push to `main`                              | Bleeding edge                     |
 
-**Production rule:** pin a semver tag (e.g. `:1.3.3`, `:1.3.3-graalvm`,
-`:1.3.3-java-runtime`). Never a rolling tag — `:latest`, `:graalvm`,
-`:node`, `:java-runtime` — in release or prod paths. All eleven variants are
-built from the same commit and share the same semver: pick the variant by
-suffix, the version by number. That includes the Java major — `:1.3.3` and
-`:1.3.3-jdk25` are the same release, built from the same commit, differing
-only in the JDK they carry.
-
-Only the newest release stays published — see
-[Supported releases](#supported-releases). An exact pin stops pulling once the
-next release ships.
+**Production rule:** pin the major alias (`:1`, `:1-graalvm`,
+`:1-java-runtime`). Only the newest release stays published — see
+[Supported releases](#supported-releases) — so an exact pin like `:1.3.3`
+stops pulling once the next release ships, while `:1` follows every 1.x
+release and only changes meaning at 2.0.0, which is a breaking change anyway.
+Never a rolling tag — `:latest`, `:graalvm`, `:node`, `:java-runtime` — in
+release or prod paths: those move on every merge to `main`, not on releases.
+All eleven variants are built from the same commit and share the same semver:
+pick the variant by suffix, the version by number. That includes the Java
+major — `:1` and `:1-jdk25` are the same release, differing only in the JDK
+they carry.
 
 ---
 
@@ -196,7 +196,7 @@ jobs:
   build:
     runs-on: ubuntu-latest
     container:
-      image: ghcr.io/codehunters-io/ci-base-images:1.3.3
+      image: ghcr.io/codehunters-io/ci-base-images:1
     steps:
       - uses: actions/checkout@v5
 
@@ -218,13 +218,13 @@ bump:
 
 | Stage        | From                  | To                            |
 |--------------|-----------------------|-------------------------------|
-| build / test | `:1.3.3`              | `:1.3.3-jdk25`                |
-| `nativeCompile` | `:1.3.3-graalvm`   | `:1.3.3-graalvm25`            |
-| app image    | `:1.3.3-java-runtime` | `:1.3.3-java25-runtime`       |
+| build / test | `:1`                  | `:1-jdk25`                    |
+| `nativeCompile` | `:1-graalvm`       | `:1-graalvm25`                |
+| app image    | `:1-java-runtime`     | `:1-java25-runtime`           |
 
 ```yaml
     container:
-      image: ghcr.io/codehunters-io/ci-base-images:1.3.3-jdk25
+      image: ghcr.io/codehunters-io/ci-base-images:1-jdk25
 ```
 
 Move the build stage and the runtime stage together: a jar compiled with
@@ -242,12 +242,12 @@ traffic.
 **Spring Boot on Java 21** — the default, unsuffixed tag:
 
 ```dockerfile
-FROM ghcr.io/codehunters-io/ci-base-images:1.3.3 AS build
+FROM ghcr.io/codehunters-io/ci-base-images:1 AS build
 WORKDIR /src
 COPY . .
 RUN ./gradlew bootJar --no-daemon --build-cache
 
-FROM ghcr.io/codehunters-io/ci-base-images:1.3.3-java-runtime
+FROM ghcr.io/codehunters-io/ci-base-images:1-java-runtime
 COPY --from=build /src/build/libs/*.jar /app/app.jar
 EXPOSE 8080
 CMD ["java", "-jar", "/app/app.jar"]
@@ -262,12 +262,12 @@ it. `tini` is the entrypoint, so anything the app forks gets reaped.
 **Spring Boot on Java 25** — both stages move together:
 
 ```dockerfile
-FROM ghcr.io/codehunters-io/ci-base-images:1.3.3-jdk25 AS build
+FROM ghcr.io/codehunters-io/ci-base-images:1-jdk25 AS build
 WORKDIR /src
 COPY . .
 RUN ./gradlew bootJar --no-daemon --build-cache
 
-FROM ghcr.io/codehunters-io/ci-base-images:1.3.3-java25-runtime
+FROM ghcr.io/codehunters-io/ci-base-images:1-java25-runtime
 COPY --from=build /src/build/libs/*.jar /app/app.jar
 EXPOSE 8080
 CMD ["java", "-jar", "/app/app.jar"]
@@ -281,12 +281,12 @@ deploy.
 **GraalVM native binary** — build on GraalVM, ship on distroless:
 
 ```dockerfile
-FROM ghcr.io/codehunters-io/ci-base-images:1.3.3-graalvm AS build
+FROM ghcr.io/codehunters-io/ci-base-images:1-graalvm AS build
 WORKDIR /src
 COPY . .
 RUN ./gradlew nativeCompile --no-daemon --build-cache
 
-FROM ghcr.io/codehunters-io/ci-base-images:1.3.3-native-runtime
+FROM ghcr.io/codehunters-io/ci-base-images:1-native-runtime
 COPY --from=build /src/build/native/nativeCompile/app /app/app
 EXPOSE 8080
 ENTRYPOINT ["/app/app"]
@@ -302,14 +302,14 @@ unavailable in the final stage: everything must be done in the build stage.
 **Node service:**
 
 ```dockerfile
-FROM ghcr.io/codehunters-io/ci-base-images:1.3.3-node AS build
+FROM ghcr.io/codehunters-io/ci-base-images:1-node AS build
 WORKDIR /src
 COPY package*.json ./
 RUN npm ci
 COPY . .
 RUN npm run build && npm prune --omit=dev
 
-FROM ghcr.io/codehunters-io/ci-base-images:1.3.3-node-runtime
+FROM ghcr.io/codehunters-io/ci-base-images:1-node-runtime
 COPY --from=build /src/node_modules /app/node_modules
 COPY --from=build /src/dist /app/dist
 EXPOSE 3000
@@ -324,14 +324,14 @@ stage.
 **React/Vite static build:**
 
 ```dockerfile
-FROM ghcr.io/codehunters-io/ci-base-images:1.3.3-node AS build
+FROM ghcr.io/codehunters-io/ci-base-images:1-node AS build
 WORKDIR /src
 COPY package*.json ./
 RUN npm ci
 COPY . .
 RUN npm run build
 
-FROM ghcr.io/codehunters-io/ci-base-images:1.3.3-web-runtime
+FROM ghcr.io/codehunters-io/ci-base-images:1-web-runtime
 COPY --from=build /src/dist /usr/share/nginx/html
 ```
 
@@ -357,7 +357,7 @@ jobs:
   native-build:
     runs-on: ubuntu-latest
     container:
-      image: ghcr.io/codehunters-io/ci-base-images:1.3.3-graalvm
+      image: ghcr.io/codehunters-io/ci-base-images:1-graalvm
     steps:
       - uses: actions/checkout@v5
 
@@ -372,7 +372,7 @@ jobs:
   gateway-build:
     runs-on: ubuntu-latest
     container:
-      image: ghcr.io/codehunters-io/ci-base-images:1.3.3-krakend
+      image: ghcr.io/codehunters-io/ci-base-images:1-krakend
     steps:
       - uses: actions/checkout@v5
 
@@ -399,7 +399,7 @@ jobs:
   contracts:
     runs-on: ubuntu-latest
     container:
-      image: ghcr.io/codehunters-io/ci-base-images:1.3.3-node
+      image: ghcr.io/codehunters-io/ci-base-images:1-node
     steps:
       - uses: actions/checkout@v5
 
@@ -498,7 +498,7 @@ jobs:
 
 ```yaml
 container:
-  image: ghcr.io/codehunters-io/ci-base-images:1.3.3
+  image: ghcr.io/codehunters-io/ci-base-images:1
 ```
 
 Bumping that single pin in `ci-templates` rolls every `codehunters-ms-*` pipeline to
@@ -603,7 +603,7 @@ Inside `krakend-main-pipeline.yml`:
 
 ```yaml
 container:
-  image: ghcr.io/codehunters-io/ci-base-images:1.3.3-krakend
+  image: ghcr.io/codehunters-io/ci-base-images:1-krakend
 ```
 
 One pin bumps every KrakenD stage at once. The KrakenD CLI version and Go
@@ -681,7 +681,7 @@ trade.
 
 | Candidate                                  | Reason rejected                                        |
 |--------------------------------------------|--------------------------------------------------------|
-| Bump `images/ci/jdk` from 21 to 25          | Breaks every consumer pinned to `:latest` or `:vX.Y.Z`  |
+| Bump `images/ci/jdk` from 21 to 25          | Breaks every consumer pinned to `:latest` or `:1`        |
 | One Dockerfile, `ARG JAVA_VERSION`          | Dependabot cannot see or update a non-literal `FROM`    |
 | Temurin 26                                  | Not an LTS; the consumers track LTS majors              |
 | Java 27                                     | Not an LTS either; 29 is the next one (Sep 2027)        |

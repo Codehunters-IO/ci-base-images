@@ -16,6 +16,11 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   releases" section states the window and recommends pinning an alias
   (`:1`, `:1.3`) rather than an exact version. The weekly
   run still only reports; deleting is a manual dispatch.
+- **The README's examples pin the major alias** (`:1`, `:1-graalvm`,
+  `:1-java-runtime`) instead of an exact release, and the production rule
+  says the same. With one release kept, a copied `:1.3.3` would break on the
+  first cleanup after 1.3.4. The tag tables now say what each tag is for and
+  when it disappears.
 
 ## [1.3.3] - 2026-10-05
 
