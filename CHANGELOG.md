@@ -7,6 +7,38 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [1.3.4] - 2026-10-07
+
+### Security
+- **Every published digest is signed with cosign keyless.** `build-publish.yml`
+  gains a `sign` job (ci-templates `shared-sign-images`), the only job granted
+  `id-token: write`. The README's "Verifying an image" section has the
+  `cosign verify` command.
+- **Secrets are gated alongside CVEs**, at PR, publish and in the weekly
+  rescan (`scanners: vuln,secret`). All eleven published 1.3.3 images scanned
+  clean when it was turned on.
+- **Each image has a size budget** (`max_size_mb` in `pr-validation.yml`, ~15%
+  above its size as the PR workflow measures it). A PR that pushes an image
+  over it fails. The runner's measurement is 2-3x a local `docker image
+  inspect`, so budgets are calibrated against the job summary.
+
+### Changed
+- The four ci-templates pins move to v2.1.0. v2.0.0's removals do not touch
+  the image or cleanup workflows.
+- **Only the newest release stays published.** `cleanup-packages.yml`
+  moves to ci-templates v1.7.0 and sets `keep_releases: 1`: older releases,
+  their `X.Y` / `X` aliases and every `sha-<short>` build tag are deleted from
+  GHCR with their whole image. Rolling tags are untouched. A consumer pinned
+  to a deleted release fails on `docker pull`; the README's "Supported
+  releases" section states the window and recommends pinning an alias
+  (`:1`, `:1.3`) rather than an exact version. The weekly
+  run still only reports; deleting is a manual dispatch.
+- **The README's examples pin the major alias** (`:1`, `:1-graalvm`,
+  `:1-java-runtime`) instead of an exact release, and the production rule
+  says the same. With one release kept, a copied `:1.3.3` would break on the
+  first cleanup after 1.3.4. The tag tables now say what each tag is for and
+  when it disappears.
+
 ## [1.3.3] - 2026-10-05
 
 ### Security

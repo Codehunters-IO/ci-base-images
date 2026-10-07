@@ -30,7 +30,7 @@ permissions:
 jobs:
   scan:
     # Pinned, not @v1 — see the note in pr-validation.yml.
-    uses: Codehunters-IO/ci-templates/.github/workflows/shared-scan-published-images.yml@5c8483a4c9fe1b6d39b06f8b908d668154f5699c # v1.5.2
+    uses: Codehunters-IO/ci-templates/.github/workflows/shared-scan-published-images.yml@cd220fa8ff35c182b133d6dfdbbdf134549b7b06 # v2.1.0
     with:
       # A version older than a variant fails on that variant, because the tag
       # was never published: the Java 25 family arrived in 1.2.0, so scanning
@@ -39,6 +39,7 @@ jobs:
       # matters — those are what consumers on a rolling tag actually pull.
       version: ${{ inputs.version || '' }}
       trivyignores: '.trivyignore.yaml'
+      scanners: 'vuln,secret'
       ignore_policy: '.trivy/ignore-policy.rego'
       images: |
         [
