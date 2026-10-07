@@ -175,7 +175,7 @@ Node variant (`-node` suffix):
 
 **Production rule:** pin the major alias (`:1`, `:1-graalvm`,
 `:1-java-runtime`). Only the newest release stays published — see
-[Supported releases](#supported-releases) — so an exact pin like `:1.3.4`
+[Supported releases](#supported-releases) — so an exact pin like `:1.3.5`
 stops pulling once the next release ships, while `:1` follows every 1.x
 release and only changes meaning at 2.0.0, which is a breaking change anyway.
 Never a rolling tag — `:latest`, `:graalvm`, `:node`, `:java-runtime` — in
@@ -189,6 +189,10 @@ they carry.
 
 ## Usage in a consumer workflow
 
+The package is private: every example below needs `permissions: packages:
+read` in the workflow and the consuming repository granted read access to the
+package. See [GHCR package visibility](#ghcr-package-visibility).
+
 ### JDK variant (default — build / test / deploy)
 
 ```yaml
@@ -197,6 +201,9 @@ jobs:
     runs-on: ubuntu-latest
     container:
       image: ghcr.io/codehunters-io/ci-base-images:1
+      credentials:
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
     steps:
       - uses: actions/checkout@v5
 
@@ -225,6 +232,9 @@ bump:
 ```yaml
     container:
       image: ghcr.io/codehunters-io/ci-base-images:1-jdk25
+      credentials:
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
 ```
 
 Move the build stage and the runtime stage together: a jar compiled with
@@ -358,6 +368,9 @@ jobs:
     runs-on: ubuntu-latest
     container:
       image: ghcr.io/codehunters-io/ci-base-images:1-graalvm
+      credentials:
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
     steps:
       - uses: actions/checkout@v5
 
@@ -373,6 +386,9 @@ jobs:
     runs-on: ubuntu-latest
     container:
       image: ghcr.io/codehunters-io/ci-base-images:1-krakend
+      credentials:
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
     steps:
       - uses: actions/checkout@v5
 
@@ -400,6 +416,9 @@ jobs:
     runs-on: ubuntu-latest
     container:
       image: ghcr.io/codehunters-io/ci-base-images:1-node
+      credentials:
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
     steps:
       - uses: actions/checkout@v5
 
@@ -499,6 +518,9 @@ jobs:
 ```yaml
 container:
   image: ghcr.io/codehunters-io/ci-base-images:1
+  credentials:
+    username: ${{ github.actor }}
+    password: ${{ secrets.GITHUB_TOKEN }}
 ```
 
 Bumping that single pin in `ci-templates` rolls every `codehunters-ms-*` pipeline to
@@ -604,6 +626,9 @@ Inside `krakend-main-pipeline.yml`:
 ```yaml
 container:
   image: ghcr.io/codehunters-io/ci-base-images:1-krakend
+  credentials:
+    username: ${{ github.actor }}
+    password: ${{ secrets.GITHUB_TOKEN }}
 ```
 
 One pin bumps every KrakenD stage at once. The KrakenD CLI version and Go
@@ -924,18 +949,18 @@ does not concern you, which was already the rule.
 Semver. Cut a new release with:
 
 ```bash
-git tag -a v1.3.4 -m "Release v1.3.4"
-git push origin v1.3.4
+git tag -a v1.3.5 -m "Release v1.3.5"
+git push origin v1.3.5
 ```
 
 The git tag carries the `v`; the published image tags do not. `docker/metadata-action`
-strips it, so `v1.3.4` becomes `:1.3.4`.
+strips it, so `v1.3.5` becomes `:1.3.5`.
 
 The `build-publish.yml` workflow picks up the tag and publishes **all eleven
-variants** at the same semver — `:1.3.4`, `:1.3.4-jdk25`, `:1.3.4-graalvm`,
-`:1.3.4-graalvm25`, `:1.3.4-krakend`, `:1.3.4-node`, `:1.3.4-java-runtime`,
-`:1.3.4-java25-runtime`, `:1.3.4-node-runtime`, `:1.3.4-web-runtime`,
-`:1.3.4-native-runtime` — plus the matching `:1.3` and `:1` tags for each, and
+variants** at the same semver — `:1.3.5`, `:1.3.5-jdk25`, `:1.3.5-graalvm`,
+`:1.3.5-graalvm25`, `:1.3.5-krakend`, `:1.3.5-node`, `:1.3.5-java-runtime`,
+`:1.3.5-java25-runtime`, `:1.3.5-node-runtime`, `:1.3.5-web-runtime`,
+`:1.3.5-native-runtime` — plus the matching `:1.3` and `:1` tags for each, and
 `:sha-<short>` per variant.
 
 Rolling tags are **not** updated on tag pushes —
@@ -969,6 +994,9 @@ pinned to it fails on `docker pull` with `manifest unknown`.
 | `X.Y` / `X` aliases the newest release carries | Aliases of deleted releases |
 | Rolling tags (`latest`, `graalvm`, `main-*`…) | `sha-<short>` build tags |
 
+A release's cosign signatures (versions tagged `sha256-<digest>`) are deleted
+with it; the signatures of what is kept stay.
+
 A deleted version cannot be restored, and with one release kept there is no
 overlap: an exact pin breaks on the first cleanup after the next release. Pin
 an alias instead:
@@ -977,7 +1005,7 @@ an alias instead:
 |---|---|---|
 | `:1` (or `:1-graalvm`…) | every 1.x release | 2.0.0 ships — a major is a breaking change anyway |
 | `:1.3` | patches | 1.4.0 ships: `1.3` no longer belongs to the newest release |
-| `:1.3.4` | nothing | 1.3.5 ships |
+| `:1.3.5` | nothing | 1.3.6 ships |
 
 An alias moves on your next pull, so the build changes without a commit on
 your side. That is the trade for not breaking: if a pipeline needs a frozen
@@ -992,10 +1020,53 @@ plan in the job summary.
 
 ## GHCR package visibility
 
-After the first publish, mark the GHCR package **public** (one-time UI step at
-`https://github.com/orgs/Codehunters-IO/packages/container/ci-base-images/settings`).
+The package is **private**, deliberately, while the repository is public: anyone
+can read how the images are built, only the organisation can pull them. Every
+pull needs a credential with read access to the package.
 
-Otherwise every consumer workflow needs an explicit `docker/login-action` step.
+**From GitHub Actions** — the workflow's own `GITHUB_TOKEN`, no extra secret:
+
+1. Grant the consuming repository access once, in the package settings under
+   *Manage Actions access* (role *Read*):
+   `https://github.com/orgs/Codehunters-IO/packages/container/ci-base-images/settings`.
+2. Give the workflow `permissions: packages: read`.
+3. Pass the token where the image is pulled:
+
+```yaml
+permissions:
+  contents: read
+  packages: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    container:
+      image: ghcr.io/codehunters-io/ci-base-images:1
+      credentials:
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+```
+
+For a `FROM` in a Dockerfile, log in before the build instead:
+
+```yaml
+      - uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+```
+
+**Locally** — a classic personal access token with `read:packages`. GHCR does
+not accept fine-grained tokens. With the GitHub CLI already logged in:
+
+```bash
+gh auth token | docker login ghcr.io -u <github-user> --password-stdin
+```
+
+Without one of these, `docker pull` fails with `unauthorized`, and so does
+`cosign verify` (pass `--registry-username` / `--registry-password`, or log in
+first).
 
 ---
 

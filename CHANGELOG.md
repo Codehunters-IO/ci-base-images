@@ -7,6 +7,18 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [1.3.5] - 2026-10-07
+
+### Changed
+- The ci-templates pins move to v2.2.1. The cleanup now deletes a cosign
+  signature together with its image: GHCR stores each one as a version tagged
+  `sha256-<digest>`, which the cleanup used to protect as an unrecognised tag,
+  so signatures would have outlived every retired release.
+- The README documents pulling from the package, which stays private: the
+  consumer repository's read access under *Manage Actions access*,
+  `packages: read`, and `credentials:` on every `container:` example. Locally,
+  a classic PAT with `read:packages`.
+
 ## [1.3.4] - 2026-10-07
 
 ### Security
