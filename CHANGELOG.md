@@ -7,7 +7,22 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Security
+- **Every published digest is signed with cosign keyless.** `build-publish.yml`
+  gains a `sign` job (ci-templates `shared-sign-images`), the only job granted
+  `id-token: write`. The README's "Verifying an image" section has the
+  `cosign verify` command.
+- **Secrets are gated alongside CVEs**, at PR, publish and in the weekly
+  rescan (`scanners: vuln,secret`). All eleven published 1.3.3 images scanned
+  clean when it was turned on.
+- **Each image has a size budget** (`max_size_mb` in `pr-validation.yml`, ~15%
+  above its size as the PR workflow measures it). A PR that pushes an image
+  over it fails. The runner's measurement is 2-3x a local `docker image
+  inspect`, so budgets are calibrated against the job summary.
+
 ### Changed
+- The four ci-templates pins move to v2.1.0. v2.0.0's removals do not touch
+  the image or cleanup workflows.
 - **Only the newest release stays published.** `cleanup-packages.yml`
   moves to ci-templates v1.7.0 and sets `keep_releases: 1`: older releases,
   their `X.Y` / `X` aliases and every `sha-<short>` build tag are deleted from

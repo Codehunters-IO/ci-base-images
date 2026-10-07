@@ -35,7 +35,7 @@ permissions:
 jobs:
   build-publish:
     # Pinned, not @v1 — see the note in pr-validation.yml.
-    uses: Codehunters-IO/ci-templates/.github/workflows/shared-build-publish-image.yml@5c8483a4c9fe1b6d39b06f8b908d668154f5699c # v1.5.2
+    uses: Codehunters-IO/ci-templates/.github/workflows/shared-build-publish-image.yml@cd220fa8ff35c182b133d6dfdbbdf134549b7b06 # v2.1.0
     with:
       # Explicitly on main, not left to the shared workflow's own rule. That rule
       # enables the rolling tags when the push is on the DEFAULT branch, which
@@ -49,6 +49,7 @@ jobs:
       # publishes semver tags and never moves a rolling one.
       push_rolling: ${{ github.ref == 'refs/heads/main' || inputs.push_rolling || false }}
       smoke_command: './scripts/run-smoke.sh'
+      scanners: 'vuln,secret'
       trivyignores: '.trivyignore.yaml'
       ignore_policy: '.trivy/ignore-policy.rego'
       # The JDK variant carries no suffix: its tags are the unsuffixed ones, so
@@ -71,3 +72,15 @@ jobs:
           {"name": "web-runtime",    "dockerfile": "images/runtime/web/Dockerfile",    "tag_suffix": "-web-runtime",     "rolling_tag": "web-runtime",    "scan_severity": "CRITICAL,HIGH", "smoke_env": "KIND=web\nVARIANT=web"},
           {"name": "native-runtime", "dockerfile": "images/runtime/native/Dockerfile", "tag_suffix": "-native-runtime",  "rolling_tag": "native-runtime", "scan_severity": "CRITICAL,HIGH", "smoke_env": "KIND=native"}
         ]
+
+  # cosign keyless signature on every digest the job above pushed, so a
+  # consumer can check that an image came from this repository's pipeline and
+  # not from anyone else with write access to the package. id-token is granted
+  # here and nowhere else: only this job needs an OIDC token.
+  sign:
+    needs: build-publish
+    permissions:
+      contents: read
+      packages: write
+      id-token: write
+    uses: Codehunters-IO/ci-templates/.github/workflows/shared-sign-images.yml@cd220fa8ff35c182b133d6dfdbbdf134549b7b06 # v2.1.0
