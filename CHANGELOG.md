@@ -7,6 +7,8 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [1.3.4] - 2026-10-07
+
 ### Security
 - **Every published digest is signed with cosign keyless.** `build-publish.yml`
   gains a `sign` job (ci-templates `shared-sign-images`), the only job granted
