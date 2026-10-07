@@ -1090,6 +1090,7 @@ but the base has not picked it up, the image applies it itself:
 |---|---|---|
 | `graalvm` | `native-image-community:21` ships Oracle Linux 9.3 and is not rebuilt on errata | `OL_UPGRADE=1`: `microdnf upgrade` before installing, with `codeready_builder` enabled for that step because `glibc-static` and `libstdc++-static` live there and pin glibc |
 | Every Alpine image: `jdk`, `jdk25`, `node`, `krakend` and the four Alpine runtimes | The upstream tag lags its Alpine branch between rebuilds | `apk upgrade` |
+| `jdk`, `jdk25`, `graalvm`, `graalvm25` | Gradle bundles libraries in `lib/` and has not shipped their fixes (9.7.1 and 9.8.0 carry jackson 2.22.0, jsoup 1.22.2) | `GRADLE_PATCHES` in `install-gradle.sh`: each fixed jar, SHA-256 pinned, goes in under its real name and its `lib/<name>.properties` descriptor is rewritten to match |
 | `node`, `node-runtime` | npm bundles its own dependencies, and Node 20 ships npm 10 | npm 11, then `NPM_PATCHES` swaps bundled packages npm has not released a fix for, within the range npm itself declares. `check-pins.sh` fails if the two lists differ |
 
 Each one costs bytes or drift, so it is applied only where it removes findings:
@@ -1100,8 +1101,10 @@ same ~90 MB for none, so it is off there. An `NPM_PATCHES` entry is dropped
 once `npm ls -g` shows npm bundling a version past its floor.
 
 An advisory that cannot be fixed this way goes in `.trivyignore.yaml`, with a
-reason and an `expired_at` after which the gate reports it again. The file is
-empty today.
+reason, the one binary it was assessed in, and an `expired_at` after which the
+gate reports it again. Today it holds the advisories vendored into the official
+`krakend` 2.x binary and into buildx, neither of which has a release carrying
+the fix yet.
 
 ### Verifying an image
 
