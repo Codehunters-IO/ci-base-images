@@ -10,12 +10,12 @@ six for CI, five for runtime:
 
 | Variant         | Tag suffix    | Base image                              | libc  | Approx size | Use case                                  |
 |-----------------|---------------|-----------------------------------------|-------|-------------|-------------------------------------------|
-| **JDK**         | _(none)_      | `eclipse-temurin:21-jdk-alpine`         | musl  | ~450 MB     | `codehunters-ms-*` build/test/deploy (default)  |
-| **JDK 25**      | `-jdk25`      | `eclipse-temurin:25-jdk-alpine`         | musl  | ~450 MB     | the same, for services on the JDK 25 LTS  |
-| **GraalVM**     | `-graalvm`    | `ghcr.io/graalvm/native-image-community:21` | glibc | ~1.1 GB     | `nativeCompile` / `native-image` jobs     |
-| **GraalVM 25**  | `-graalvm25`  | `ghcr.io/graalvm/native-image-community:25` | glibc | ~1.1 GB     | the same, for services on the JDK 25 LTS  |
-| **KrakenD**     | `-krakend`    | `alpine:3.24` + `krakend` + `golang`    | musl  | ~700 MB     | `codehunters-gw-krakend` gateway pipelines      |
-| **Node**        | `-node`       | `node:20.20.2-alpine`                   | musl  | ~210 MB     | Hardhat/Solidity + TypeScript SDK pipelines |
+| **JDK**         | _(none)_      | `eclipse-temurin:21-jdk-alpine`         | musl  | ~410 MB     | `codehunters-ms-*` build/test/deploy (default)  |
+| **JDK 25**      | `-jdk25`      | `eclipse-temurin:25-jdk-alpine`         | musl  | ~345 MB     | the same, for services on the JDK 25 LTS  |
+| **GraalVM**     | `-graalvm`    | `ghcr.io/graalvm/native-image-community:21` | glibc | ~820 MB     | `nativeCompile` / `native-image` jobs     |
+| **GraalVM 25**  | `-graalvm25`  | `ghcr.io/graalvm/native-image-community:25` | glibc | ~770 MB     | the same, for services on the JDK 25 LTS  |
+| **KrakenD**     | `-krakend`    | `alpine:3.24` + `krakend` + `golang`    | musl  | ~295 MB     | `codehunters-gw-krakend` gateway pipelines      |
+| **Node**        | `-node`       | `node:20.20.2-alpine`                   | musl  | ~220 MB     | Hardhat/Solidity + TypeScript SDK pipelines |
 
 > **Java 21 is still the default.** The unsuffixed tags — `:latest`, `:1`, `:X.Y.Z` —
 > remain JDK 21, and nothing pinning them changes. Java 25 is opt-in per
@@ -30,6 +30,9 @@ six for CI, five for runtime:
 
 Architectures for every variant: `linux/amd64`, `linux/arm64` (multi-arch manifest).
 
+Sizes are uncompressed, measured on arm64 with Docker Desktop for 1.3.5. CI's
+size budgets read a larger number for the same image — see `pr-validation.yml`.
+
 ---
 
 ## Two families
@@ -41,7 +44,7 @@ Architectures for every variant: `linux/amd64`, `linux/arm64` (multi-arch manife
 | Java | JDK 21 or 25 + Gradle | JRE 21 or 25, or distroless for native binaries |
 | Node | + `build-base`, `python3` | runtime only, no compiler |
 | Also carries | Docker CLI, AWS CLI, git, gnupg | none of it |
-| Size | 210 MB – 1.1 GB | 60 – 190 MB |
+| Size | 220 – 820 MB | 8 – 80 MB |
 
 The second row of "also carries" is the one that matters. A Docker client and
 an AWS CLI inside a container that serves traffic are tools an attacker
@@ -99,7 +102,7 @@ Variant-specific tooling:
 | GraalVM CE JDK 21 | ❌  | ❌     | ✅      | ❌         | ❌      | ❌   | `ghcr.io/graalvm/native-image-community:21` |
 | GraalVM CE JDK 25 | ❌  | ❌     | ❌      | ✅         | ❌      | ❌   | `ghcr.io/graalvm/native-image-community:25` |
 | `native-image`    | ❌  | ❌     | ✅      | ✅         | ❌      | ❌   | preinstalled in GraalVM 21+      |
-| Gradle CLI 9.7.1  | ✅  | ✅     | ✅      | ✅         | ❌      | ❌   | services.gradle.org (SHA-256 pinned) |
+| Gradle CLI 9.7.1  | ✅  | ✅     | ✅      | ✅         | ❌      | ❌   | services.gradle.org (SHA-256 pinned); bundled jackson/jsoup replaced with fixed releases (`GRADLE_PATCHES`) |
 | KrakenD CLI       | ❌  | ❌     | ❌      | ❌         | ✅      | ❌   | `krakend:${KRAKEND_VERSION}` (multi-stage COPY) |
 | Go toolchain      | ❌  | ❌     | ❌      | ❌         | ✅      | ❌   | `golang:${GO_VERSION}-alpine` (multi-stage COPY) |
 | `build-base`      | ❌  | ❌     | ❌      | ❌         | ✅      | ✅   | apk (Go plugins on KrakenD; node-gyp on Node) |
