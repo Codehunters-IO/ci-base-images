@@ -7,6 +7,23 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [1.3.6] - 2026-10-07
+
+### Security
+- **Gradle's bundled jackson and jsoup are patched in the four Java CI images.**
+  Gradle 9.7.1 (and 9.8.0) ship jackson-core/databind 2.22.0 and jsoup 1.22.2:
+  six fixable HIGH that no Gradle release fixes yet. `install-gradle.sh` swaps
+  in jackson 2.22.3 and jsoup 1.23.2, SHA-256 pinned, under their real names,
+  and rewrites the `lib/<name>.properties` descriptors Gradle loads them by.
+  A build with the configuration cache, tests and a build-operation trace
+  behaves the same as on the unpatched image.
+- **Four advisories with no upstream fix are accepted until 2026-11-07**, each
+  scoped to the one binary it was assessed in: CVE-2026-56864, CVE-2026-56865
+  and CVE-2026-84445 in the official `krakend` 2.13.11 binary (the newest 2.x;
+  3.0.0 is a KrakenD major), and CVE-2026-17106 in buildx (no release vendors
+  go-archive >= 0.3.0 yet). None is reachable in how a CI job uses the tool;
+  `.trivyignore.yaml` says why for each.
+
 ## [1.3.5] - 2026-10-07
 
 ### Changed
