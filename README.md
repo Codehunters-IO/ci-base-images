@@ -969,6 +969,9 @@ pinned to it fails on `docker pull` with `manifest unknown`.
 | `X.Y` / `X` aliases the newest release carries | Aliases of deleted releases |
 | Rolling tags (`latest`, `graalvm`, `main-*`…) | `sha-<short>` build tags |
 
+A release's cosign signatures (versions tagged `sha256-<digest>`) are deleted
+with it; the signatures of what is kept stay.
+
 A deleted version cannot be restored, and with one release kept there is no
 overlap: an exact pin breaks on the first cleanup after the next release. Pin
 an alias instead:
