@@ -870,9 +870,9 @@ workflows in [`Codehunters-IO/ci-templates`](https://github.com/Codehunters-IO/c
 
 | File | Reusable workflow | Does |
 |------|-------------------|------|
-| `pr-validation.yml` | `shared-validate-image-pr` | hadolint, ShellCheck, `check-pins.sh`, then build + smoke + CVE gate per image per architecture |
-| `build-publish.yml` | `shared-build-publish-image` | publish multi-arch manifests with SBOM and provenance |
-| `security-scan.yml` | `shared-scan-published-images` | weekly rescan of the tags consumers pull |
+| `pr-validation.yml` | `shared-validate-image-pr` | hadolint, ShellCheck, `check-pins.sh`, then build + smoke + CVE and secret gate + size budget per image per architecture |
+| `build-publish.yml` | `shared-build-publish-image` + `shared-sign-images` | publish multi-arch manifests with SBOM and provenance, then sign each digest with cosign |
+| `security-scan.yml` | `shared-scan-published-images` | weekly rescan (CVEs and secrets) of the tags consumers pull |
 | `cleanup-packages.yml` | `shared-cleanup-packages` | prune untagged GHCR versions and every release but the newest |
 
 The image list appears in three of them rather than once, because a pull
@@ -1031,6 +1031,32 @@ once `npm ls -g` shows npm bundling a version past its floor.
 An advisory that cannot be fixed this way goes in `.trivyignore.yaml`, with a
 reason and an `expired_at` after which the gate reports it again. The file is
 empty today.
+
+### Verifying an image
+
+Every published digest is signed with cosign keyless by this repository's
+publish workflow. The signature ties the digest to the pipeline that pushed it,
+which the SBOM and provenance alone do not: anyone with write access to the
+package could push an image under the same tags.
+
+```bash
+cosign verify ghcr.io/codehunters-io/ci-base-images:1 \
+  --certificate-oidc-issuer https://token.actions.githubusercontent.com \
+  --certificate-identity-regexp '^https://github.com/Codehunters-IO/ci-templates/\.github/workflows/shared-sign-images\.yml@' \
+  --certificate-github-workflow-repository Codehunters-IO/ci-base-images
+```
+
+The identity is the reusable signing workflow in ci-templates;
+`--certificate-github-workflow-repository` is what pins it to this repository.
+Images published before 1.3.4 carry no signature.
+
+### Gates on every image
+
+| Gate | Where | Fails on |
+|---|---|---|
+| CVEs | PR, publish, weekly rescan | fixable `CRITICAL` (`ci/`) or `CRITICAL,HIGH` (`runtime/`) |
+| Secrets | PR, publish, weekly rescan | a credential in any layer, same severities |
+| Size budget | PR | an image over its `max_size_mb` in `pr-validation.yml` |
 
 ### AWS CLI integrity
 
