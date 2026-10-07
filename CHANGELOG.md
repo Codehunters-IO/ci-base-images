@@ -7,6 +7,8 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [1.3.6] - 2026-10-07
+
 ### Security
 - **Gradle's bundled jackson and jsoup are patched in the four Java CI images.**
   Gradle 9.7.1 (and 9.8.0) ship jackson-core/databind 2.22.0 and jsoup 1.22.2:
