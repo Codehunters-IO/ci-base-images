@@ -175,7 +175,7 @@ Node variant (`-node` suffix):
 
 **Production rule:** pin the major alias (`:1`, `:1-graalvm`,
 `:1-java-runtime`). Only the newest release stays published — see
-[Supported releases](#supported-releases) — so an exact pin like `:1.3.5`
+[Supported releases](#supported-releases) — so an exact pin like `:1.3.6`
 stops pulling once the next release ships, while `:1` follows every 1.x
 release and only changes meaning at 2.0.0, which is a breaking change anyway.
 Never a rolling tag — `:latest`, `:graalvm`, `:node`, `:java-runtime` — in
@@ -949,18 +949,18 @@ does not concern you, which was already the rule.
 Semver. Cut a new release with:
 
 ```bash
-git tag -a v1.3.5 -m "Release v1.3.5"
-git push origin v1.3.5
+git tag -a v1.3.6 -m "Release v1.3.6"
+git push origin v1.3.6
 ```
 
 The git tag carries the `v`; the published image tags do not. `docker/metadata-action`
-strips it, so `v1.3.5` becomes `:1.3.5`.
+strips it, so `v1.3.6` becomes `:1.3.6`.
 
 The `build-publish.yml` workflow picks up the tag and publishes **all eleven
-variants** at the same semver — `:1.3.5`, `:1.3.5-jdk25`, `:1.3.5-graalvm`,
-`:1.3.5-graalvm25`, `:1.3.5-krakend`, `:1.3.5-node`, `:1.3.5-java-runtime`,
-`:1.3.5-java25-runtime`, `:1.3.5-node-runtime`, `:1.3.5-web-runtime`,
-`:1.3.5-native-runtime` — plus the matching `:1.3` and `:1` tags for each, and
+variants** at the same semver — `:1.3.6`, `:1.3.6-jdk25`, `:1.3.6-graalvm`,
+`:1.3.6-graalvm25`, `:1.3.6-krakend`, `:1.3.6-node`, `:1.3.6-java-runtime`,
+`:1.3.6-java25-runtime`, `:1.3.6-node-runtime`, `:1.3.6-web-runtime`,
+`:1.3.6-native-runtime` — plus the matching `:1.3` and `:1` tags for each, and
 `:sha-<short>` per variant.
 
 Rolling tags are **not** updated on tag pushes —
@@ -1005,7 +1005,7 @@ an alias instead:
 |---|---|---|
 | `:1` (or `:1-graalvm`…) | every 1.x release | 2.0.0 ships — a major is a breaking change anyway |
 | `:1.3` | patches | 1.4.0 ships: `1.3` no longer belongs to the newest release |
-| `:1.3.5` | nothing | 1.3.6 ships |
+| `:1.3.6` | nothing | 1.3.7 ships |
 
 An alias moves on your next pull, so the build changes without a commit on
 your side. That is the trade for not breaking: if a pipeline needs a frozen
