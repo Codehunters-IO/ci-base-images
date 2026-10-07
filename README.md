@@ -189,6 +189,10 @@ they carry.
 
 ## Usage in a consumer workflow
 
+The package is private: every example below needs `permissions: packages:
+read` in the workflow and the consuming repository granted read access to the
+package. See [GHCR package visibility](#ghcr-package-visibility).
+
 ### JDK variant (default — build / test / deploy)
 
 ```yaml
@@ -197,6 +201,9 @@ jobs:
     runs-on: ubuntu-latest
     container:
       image: ghcr.io/codehunters-io/ci-base-images:1
+      credentials:
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
     steps:
       - uses: actions/checkout@v5
 
@@ -225,6 +232,9 @@ bump:
 ```yaml
     container:
       image: ghcr.io/codehunters-io/ci-base-images:1-jdk25
+      credentials:
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
 ```
 
 Move the build stage and the runtime stage together: a jar compiled with
@@ -358,6 +368,9 @@ jobs:
     runs-on: ubuntu-latest
     container:
       image: ghcr.io/codehunters-io/ci-base-images:1-graalvm
+      credentials:
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
     steps:
       - uses: actions/checkout@v5
 
@@ -373,6 +386,9 @@ jobs:
     runs-on: ubuntu-latest
     container:
       image: ghcr.io/codehunters-io/ci-base-images:1-krakend
+      credentials:
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
     steps:
       - uses: actions/checkout@v5
 
@@ -400,6 +416,9 @@ jobs:
     runs-on: ubuntu-latest
     container:
       image: ghcr.io/codehunters-io/ci-base-images:1-node
+      credentials:
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
     steps:
       - uses: actions/checkout@v5
 
@@ -499,6 +518,9 @@ jobs:
 ```yaml
 container:
   image: ghcr.io/codehunters-io/ci-base-images:1
+  credentials:
+    username: ${{ github.actor }}
+    password: ${{ secrets.GITHUB_TOKEN }}
 ```
 
 Bumping that single pin in `ci-templates` rolls every `codehunters-ms-*` pipeline to
@@ -604,6 +626,9 @@ Inside `krakend-main-pipeline.yml`:
 ```yaml
 container:
   image: ghcr.io/codehunters-io/ci-base-images:1-krakend
+  credentials:
+    username: ${{ github.actor }}
+    password: ${{ secrets.GITHUB_TOKEN }}
 ```
 
 One pin bumps every KrakenD stage at once. The KrakenD CLI version and Go
@@ -995,10 +1020,53 @@ plan in the job summary.
 
 ## GHCR package visibility
 
-After the first publish, mark the GHCR package **public** (one-time UI step at
-`https://github.com/orgs/Codehunters-IO/packages/container/ci-base-images/settings`).
+The package is **private**, deliberately, while the repository is public: anyone
+can read how the images are built, only the organisation can pull them. Every
+pull needs a credential with read access to the package.
 
-Otherwise every consumer workflow needs an explicit `docker/login-action` step.
+**From GitHub Actions** — the workflow's own `GITHUB_TOKEN`, no extra secret:
+
+1. Grant the consuming repository access once, in the package settings under
+   *Manage Actions access* (role *Read*):
+   `https://github.com/orgs/Codehunters-IO/packages/container/ci-base-images/settings`.
+2. Give the workflow `permissions: packages: read`.
+3. Pass the token where the image is pulled:
+
+```yaml
+permissions:
+  contents: read
+  packages: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    container:
+      image: ghcr.io/codehunters-io/ci-base-images:1
+      credentials:
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+```
+
+For a `FROM` in a Dockerfile, log in before the build instead:
+
+```yaml
+      - uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+```
+
+**Locally** — a classic personal access token with `read:packages`. GHCR does
+not accept fine-grained tokens. With the GitHub CLI already logged in:
+
+```bash
+gh auth token | docker login ghcr.io -u <github-user> --password-stdin
+```
+
+Without one of these, `docker pull` fails with `unauthorized`, and so does
+`cosign verify` (pass `--registry-username` / `--registry-password`, or log in
+first).
 
 ---
 
