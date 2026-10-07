@@ -7,6 +7,12 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Changed
+- The ci-templates pins move to v2.2.2. The cleanup's delete step retries each
+  version with backoff, treats a 404 as already gone and finishes the run on a
+  bad id instead of stopping: the 1.3.5 cleanup stopped after 1 of 154
+  versions on a single transient API error.
+
 ## [1.3.6] - 2026-10-07
 
 ### Security
