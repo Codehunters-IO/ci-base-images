@@ -35,7 +35,7 @@ permissions:
 jobs:
   build-publish:
     # Pinned, not @v1 — see the note in pr-validation.yml.
-    uses: Codehunters-IO/ci-templates/.github/workflows/shared-build-publish-image.yml@1da8c1e384eb08635a965d908daad09ff6872367 # v2.2.1
+    uses: Codehunters-IO/ci-templates/.github/workflows/shared-build-publish-image.yml@f8658cb7ed0d976aaf4be4ec7aff0a3ab3aa4569 # v2.2.2
     with:
       # Explicitly on main, not left to the shared workflow's own rule. That rule
       # enables the rolling tags when the push is on the DEFAULT branch, which
@@ -83,4 +83,4 @@ jobs:
       contents: read
       packages: write
       id-token: write
-    uses: Codehunters-IO/ci-templates/.github/workflows/shared-sign-images.yml@1da8c1e384eb08635a965d908daad09ff6872367 # v2.2.1
+    uses: Codehunters-IO/ci-templates/.github/workflows/shared-sign-images.yml@f8658cb7ed0d976aaf4be4ec7aff0a3ab3aa4569 # v2.2.2
