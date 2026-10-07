@@ -16,7 +16,9 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   rescan (`scanners: vuln,secret`). All eleven published 1.3.3 images scanned
   clean when it was turned on.
 - **Each image has a size budget** (`max_size_mb` in `pr-validation.yml`, ~15%
-  above its 1.3.3 size). A PR that pushes an image over it fails.
+  above its size as the PR workflow measures it). A PR that pushes an image
+  over it fails. The runner's measurement is 2-3x a local `docker image
+  inspect`, so budgets are calibrated against the job summary.
 
 ### Changed
 - The four ci-templates pins move to v2.1.0. v2.0.0's removals do not touch

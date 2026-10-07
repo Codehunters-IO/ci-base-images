@@ -55,10 +55,14 @@ jobs:
       # job; gating it on HIGH means blocking every PR on gcc and git
       # advisories nobody can act on, which trains people to ignore the gate.
       #
-      # max_size_mb is a budget per image, set ~15% above the published 1.3.3
-      # size (arm64, uncompressed). It catches what a diff does not show: a
-      # cleanup that stopped running, a cache that landed in a layer. Raise it
-      # on purpose, in the same PR as whatever made the image bigger.
+      # max_size_mb is a budget per image, ~15% above the larger of the two
+      # architectures as THIS workflow reports it. That number is the runner's
+      # `docker image inspect` size, which with the containerd image store
+      # counts the compressed layers as well as the unpacked ones: 2-3x what a
+      # local Docker Desktop shows for the same image. Calibrate against the job
+      # summary, never against a local pull. It catches what a diff does not
+      # show: a cleanup that stopped running, a cache that landed in a layer.
+      # Raise it on purpose, in the same PR as whatever made the image bigger.
       #
       # smoke_env carries what run-smoke.sh dispatches on. KIND picks how the
       # image is tested — baked-in script for CI, mounted for runtime, host-side
@@ -67,15 +71,15 @@ jobs:
       # CI_JAVA_MAJOR, so the check cannot be handed the answer it verifies.
       images: |
         [
-          {"name": "jdk",            "dockerfile": "images/ci/jdk/Dockerfile",            "scan_severity": "CRITICAL",      "smoke_env": "KIND=ci\nVARIANT=jdk", "max_size_mb": 470},
-          {"name": "jdk25",          "dockerfile": "images/ci/jdk25/Dockerfile",          "scan_severity": "CRITICAL",      "smoke_env": "KIND=ci\nVARIANT=jdk", "max_size_mb": 400},
-          {"name": "graalvm",        "dockerfile": "images/ci/graalvm/Dockerfile",        "scan_severity": "CRITICAL",      "smoke_env": "KIND=ci\nVARIANT=graalvm", "max_size_mb": 950},
-          {"name": "graalvm25",      "dockerfile": "images/ci/graalvm25/Dockerfile",      "scan_severity": "CRITICAL",      "smoke_env": "KIND=ci\nVARIANT=graalvm", "max_size_mb": 890},
-          {"name": "krakend",        "dockerfile": "images/ci/krakend/Dockerfile",        "scan_severity": "CRITICAL",      "smoke_env": "KIND=ci\nVARIANT=krakend", "max_size_mb": 340},
-          {"name": "node",           "dockerfile": "images/ci/node/Dockerfile",           "scan_severity": "CRITICAL",      "smoke_env": "KIND=ci\nVARIANT=node", "max_size_mb": 260},
-          {"name": "java-runtime",   "dockerfile": "images/runtime/java/Dockerfile",      "scan_severity": "CRITICAL,HIGH", "smoke_env": "KIND=runtime\nVARIANT=java", "max_size_mb": 90},
-          {"name": "java25-runtime", "dockerfile": "images/runtime/java25/Dockerfile",    "scan_severity": "CRITICAL,HIGH", "smoke_env": "KIND=runtime\nVARIANT=java", "max_size_mb": 90},
-          {"name": "node-runtime",   "dockerfile": "images/runtime/node/Dockerfile",      "scan_severity": "CRITICAL,HIGH", "smoke_env": "KIND=runtime\nVARIANT=node", "max_size_mb": 65},
-          {"name": "web-runtime",    "dockerfile": "images/runtime/web/Dockerfile",       "scan_severity": "CRITICAL,HIGH", "smoke_env": "KIND=web\nVARIANT=web", "max_size_mb": 35},
-          {"name": "native-runtime", "dockerfile": "images/runtime/native/Dockerfile",    "scan_severity": "CRITICAL,HIGH", "smoke_env": "KIND=native", "max_size_mb": 10}
+          {"name": "jdk",            "dockerfile": "images/ci/jdk/Dockerfile",            "scan_severity": "CRITICAL",      "smoke_env": "KIND=ci\nVARIANT=jdk", "max_size_mb": 980},
+          {"name": "jdk25",          "dockerfile": "images/ci/jdk25/Dockerfile",          "scan_severity": "CRITICAL",      "smoke_env": "KIND=ci\nVARIANT=jdk", "max_size_mb": 920},
+          {"name": "graalvm",        "dockerfile": "images/ci/graalvm/Dockerfile",        "scan_severity": "CRITICAL",      "smoke_env": "KIND=ci\nVARIANT=graalvm", "max_size_mb": 2150},
+          {"name": "graalvm25",      "dockerfile": "images/ci/graalvm25/Dockerfile",      "scan_severity": "CRITICAL",      "smoke_env": "KIND=ci\nVARIANT=graalvm", "max_size_mb": 2090},
+          {"name": "krakend",        "dockerfile": "images/ci/krakend/Dockerfile",        "scan_severity": "CRITICAL",      "smoke_env": "KIND=ci\nVARIANT=krakend", "max_size_mb": 1120},
+          {"name": "node",           "dockerfile": "images/ci/node/Dockerfile",           "scan_severity": "CRITICAL",      "smoke_env": "KIND=ci\nVARIANT=node", "max_size_mb": 860},
+          {"name": "java-runtime",   "dockerfile": "images/runtime/java/Dockerfile",      "scan_severity": "CRITICAL,HIGH", "smoke_env": "KIND=runtime\nVARIANT=java", "max_size_mb": 250},
+          {"name": "java25-runtime", "dockerfile": "images/runtime/java25/Dockerfile",    "scan_severity": "CRITICAL,HIGH", "smoke_env": "KIND=runtime\nVARIANT=java", "max_size_mb": 270},
+          {"name": "node-runtime",   "dockerfile": "images/runtime/node/Dockerfile",      "scan_severity": "CRITICAL,HIGH", "smoke_env": "KIND=runtime\nVARIANT=node", "max_size_mb": 180},
+          {"name": "web-runtime",    "dockerfile": "images/runtime/web/Dockerfile",       "scan_severity": "CRITICAL,HIGH", "smoke_env": "KIND=web\nVARIANT=web", "max_size_mb": 90},
+          {"name": "native-runtime", "dockerfile": "images/runtime/native/Dockerfile",    "scan_severity": "CRITICAL,HIGH", "smoke_env": "KIND=native", "max_size_mb": 40}
         ]
