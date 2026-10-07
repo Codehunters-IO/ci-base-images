@@ -8,9 +8,56 @@
 # Do not add an entry for something a version bump would fix. `--ignore-unfixed`
 # already drops advisories with no upstream patch, so anything reaching this
 # file has a patch that we specifically cannot apply.
+#
+# Each entry is scoped to the one binary it was assessed in. The same CVE turning
+# up anywhere else is a new finding, not covered by this decision.
+#
+# History: CVE-2026-56854 (golang.org/x/crypto < 0.55.0, vendored into the
+# KrakenD binary) lived here while images/ci/krakend was pinned to
+# krakend:2.13.4, and left when 2.13.11 shipped x/crypto v0.56.0.
+vulnerabilities:
+  # The krakend binary is copied from the official krakend:2.13.11 image and
+  # vendors these modules; 2.13.11 is the newest 2.x. 3.0.0 carries the fixes but
+  # is a KrakenD major — a major of this image under the versioning policy, and a
+  # plugin ABI change for every gateway built here. Drop these when a 2.13.x
+  # release vendors x/mod >= 0.40.0 and grpc >= 1.83.2, or with the 3.x move.
+  - id: CVE-2026-56864
+    paths:
+      - usr/local/bin/krakend
+    statement: >-
+      x/mod sumdb integrity bypass. Reached only while downloading Go modules;
+      in this CI image the krakend binary runs `krakend check` and never
+      fetches modules. Plugin builds use the separate Go toolchain. No 2.x
+      KrakenD release vendors the fix.
+    expired_at: 2026-11-07
+  - id: CVE-2026-56865
+    paths:
+      - usr/local/bin/krakend
+    statement: >-
+      x/mod sumdb/tlog verification bypass. Same reachability as CVE-2026-56864:
+      module download code the CI use of krakend never runs. No 2.x KrakenD
+      release vendors the fix.
+    expired_at: 2026-11-07
+  - id: CVE-2026-84445
+    paths:
+      - usr/local/bin/krakend
+    statement: >-
+      gRPC-Go denial of service from malformed RPCs. Needs a listening server;
+      in this CI image krakend validates configuration and serves nothing. The
+      gateway runtime image is built elsewhere and must track this itself. No
+      2.x KrakenD release vendors grpc >= 1.83.2.
+    expired_at: 2026-11-07
 
-# Empty by design. CVE-2026-56854 (golang.org/x/crypto < 0.55.0, vendored into
-# the KrakenD binary) lived here while images/ci/krakend was pinned to
-# krakend:2.13.4. It ships x/crypto v0.56.0 as of 2.13.11, so the exception has
-# no subject left.
-vulnerabilities: []
+  # docker-buildx-plugin from the Docker CE repository, on the two Oracle Linux
+  # images. Every buildx release up to v0.38.0-rc2 still vendors go-archive
+  # v0.2.0; the Alpine images ship an older buildx that does not use the
+  # affected code. Drop this when a buildx release vendors go-archive >= 0.3.0.
+  - id: CVE-2026-17106
+    paths:
+      - usr/libexec/docker/cli-plugins/docker-buildx
+    statement: >-
+      Arbitrary file write via link following when extracting a tar. Needs a
+      crafted archive handed to buildx inside a CI job, which already runs the
+      repository's own code with the same privileges. No buildx release ships
+      go-archive >= 0.3.0 yet.
+    expired_at: 2026-11-07
