@@ -83,4 +83,4 @@ jobs:
       contents: read
       packages: write
       id-token: write
-    uses: Codehunters-IO/ci-templates/.github/workflows/shared-sign-images.yml@f8658cb7ed0d976aaf4be4ec7aff0a3ab3aa4569 # v2.2.2
+    uses: Codehunters-IO/ci-templates/.github/workflows/shared-sign-images.yml@867252511691415051eb4ac3ab5522d2d4427bb6 # v2.4.2
