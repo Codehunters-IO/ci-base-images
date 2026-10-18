@@ -637,7 +637,7 @@ container:
 One pin bumps every KrakenD stage at once. The KrakenD CLI version and Go
 toolchain are baked into the image (`KRAKEND_VERSION` + `GO_VERSION` build
 args); upgrading them requires a new image release, which avoids drift
-between gateway runtime (`krakend:2.13.11`) and CI plugin builds.
+between gateway runtime (`krakend:3.0.1`) and CI plugin builds.
 
 ---
 
@@ -721,7 +721,7 @@ Alpine 3.24 is the base; the `krakend` binary is COPYed from the official
 `golang:${GO_VERSION}-alpine`. Three reasons for this shape:
 
 1. **ABI compatibility** for `go build -buildmode=plugin`: the runtime image
-   (`krakend:2.13.11`) is built against a specific Go version — go1.26.8,
+   (`krakend:3.0.1`) is built against a specific Go version — go1.26.9,
    read off the binary with `go version -m`, not guessed. Plugin `.so` files
    must be built with the **exact same** Go version or they fail to load. apk's
    Go is typically behind — multi-stage COPY pins the version deterministically,
@@ -735,8 +735,8 @@ Alpine 3.24 is the base; the `krakend` binary is COPYed from the official
 
 | Candidate                                          | Reason rejected                                          |
 |----------------------------------------------------|----------------------------------------------------------|
-| `krakend:2.13.11` directly as CI base              | Lacks Go, docker, aws, ssh — defeats the purpose         |
-| `golang:1.26.8-alpine` directly as CI base         | Lacks krakend CLI, aws v2, docker                        |
+| `krakend:3.0.1` directly as CI base                | Lacks Go, docker, aws, ssh — defeats the purpose         |
+| `golang:1.26.9-alpine` directly as CI base         | Lacks krakend CLI, aws v2, docker                        |
 | Extending the JDK variant with Go + KrakenD        | ~1.2 GB image; pulls Temurin for no gateway purpose      |
 | `debian:bookworm-slim` + apt Go                    | apt Go = 1.21; ABI mismatch with `krakend/builder` (1.26)|
 

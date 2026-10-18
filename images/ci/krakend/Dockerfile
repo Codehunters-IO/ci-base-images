@@ -6,11 +6,11 @@
 # Docker CLI + buildx, GNU userland.
 # Usage: jobs.<id>.container: ghcr.io/codehunters/ci-base-images:vX.Y.Z-krakend
 
-ARG KRAKEND_VERSION=2.13.11
-ARG GO_VERSION=1.26.8
+ARG KRAKEND_VERSION=3.0.1
+ARG GO_VERSION=1.26.9
 
 # Stage 1 — pull the KrakenD CLI binary from the official image.
-FROM krakend:2.13.11@sha256:26eb32dbb0e679c62170b21b4efb0729dc00262afd98fe6210110dbbbdd6425f AS krakend-src
+FROM krakend:3.0.1@sha256:c974c4c5a0b5276340641749488e183ace071494d832381e42d222f5398265b4 AS krakend-src
 
 # Stage 2 — pull the Go toolchain from the official Alpine image (apk Go is
 # typically behind the version used by krakend/builder; matching the exact
@@ -20,12 +20,12 @@ FROM krakend:2.13.11@sha256:26eb32dbb0e679c62170b21b4efb0729dc00262afd98fe621011
 # KrakenD release was built with, or plugins refuse to load at runtime. Read it
 # off the binary rather than guessing:
 #
-#   id=$(docker create krakend:2.13.11)
+#   id=$(docker create krakend:3.0.1)
 #   docker cp "$id:/usr/bin/krakend" /tmp/krakend && docker rm -f "$id"
-#   go version -m /tmp/krakend | head -1    # -> go1.26.8
+#   go version -m /tmp/krakend | head -1    # -> go1.26.9
 #
 # Bump KRAKEND_VERSION and GO_VERSION together, never apart.
-FROM golang:1.26.8-alpine@sha256:ce864e7223ac17b1775e6fd0b4c0db580c2eb50e7953a427916379e4b92a1628 AS go-src
+FROM golang:1.26.9-alpine@sha256:3082400e369fa24d5fc60bca20edab3f6d604e0c5a690ec66b295eff4dd87ade AS go-src
 
 # Pruned here rather than after the COPY below: a deletion in a later layer
 # writes a whiteout and the bytes still ship. `test/` and `api/` are the Go
@@ -41,8 +41,8 @@ FROM alpine:3.24@sha256:294b683cb724975bec92580e1e685676bd4b50bda910ddb8c51d4cab
 # for an ARG declared without one. `ARG TARGETARCH=amd64` shadows it, and the
 # arm64 build then downloads x86_64 artefacts.
 ARG TARGETARCH
-ARG KRAKEND_VERSION=2.13.11
-ARG GO_VERSION=1.26.8
+ARG KRAKEND_VERSION=3.0.1
+ARG GO_VERSION=1.26.9
 # AWS_CLI_VERSION only applies if AWS_CLI_FROM_BUNDLE=1 forces the glibc bundle;
 # the musl path installs aws-cli from the Alpine community repo and ignores it.
 # The pin is the last release that ran under gcompat, kept for that escape hatch.
