@@ -18,14 +18,24 @@
 # and anything unrecognised are never touched. A consumer pinned to a retired
 # release fails on its next pull, which is why the README states the window.
 #
-# The scheduled run only ever reports. Deleting means dispatching this by hand
-# with dry_run unchecked, after reading the plan.
+# Two runs delete: build-publish.yml calls this once a v* tag is published and
+# signed, which retires the previous release on the spot, and the Sunday run
+# sweeps whatever unreferenced versions the week left behind. A failed publish
+# or signature skips the call, so a broken release never retires a good one.
+# A manual dispatch defaults to a dry run, for reading the plan first.
 name: Cleanup Packages
 
 on:
   schedule:
     # Sunday 04:00 UTC — after the week's releases, before Monday.
     - cron: '0 4 * * 0'
+  workflow_call:
+    inputs:
+      dry_run:
+        description: 'Only report what would be deleted'
+        required: false
+        type: boolean
+        default: false
   workflow_dispatch:
     inputs:
       dry_run:
@@ -39,17 +49,23 @@ permissions:
 
 jobs:
   cleanup:
+    # One cleanup at a time across both callers: a release landing during the
+    # Sunday run would otherwise plan against a package the other is deleting.
+    concurrency:
+      group: ghcr-cleanup
+      cancel-in-progress: false
     # Pinned, not @main: a reusable workflow resolves at call time, so an
     # unpinned ref means any push to ci-templates changes what runs here
     # with packages: write, without a commit in this repository.
     uses: Codehunters-IO/ci-templates/.github/workflows/shared-cleanup-packages.yml@867252511691415051eb4ac3ab5522d2d4427bb6 # v2.4.2
     with:
-      # The current release only. Consumers pin an alias (:1, :1.3) or a
+      # The current release only. Consumers pin an alias (:2, :2.0) or a
       # rolling tag; see "Supported releases" in the README.
       keep_releases: 1
       # Safe regardless of this value: anything a tag can reach, which is the
       # tagged manifest lists and every platform and attestation manifest under
       # them. Being untagged is not enough to be deleted.
-      # On the scheduled run `inputs` is empty, so this evaluates to true.
-      dry_run: ${{ inputs.dry_run != false }}
+      # On the scheduled run `inputs` is empty, so this evaluates to false and
+      # the run deletes. The release call and a dispatch pass their own value.
+      dry_run: ${{ inputs.dry_run == true }}
     secrets: inherit
