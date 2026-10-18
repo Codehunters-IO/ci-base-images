@@ -8,10 +8,23 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ## [Unreleased]
 
 ### Changed
+- **BREAKING — the KrakenD image moves to KrakenD 3.0.1 and Go 1.26.9.** A
+  KrakenD major, and so a major of this image under the versioning policy.
+  Plugins built here import `lura/v3` and load only into a `krakend:3.0.1`
+  runtime. A gateway still on 2.x has until the 1.x release is cleaned up
+  (`keep_releases: 1`) to migrate. Go moves with it: `go version -m` on the
+  3.0.1 binary reports go1.26.9, and a plugin only loads into a binary from the
+  same toolchain.
 - The ci-templates pins move to v2.2.2. The cleanup's delete step retries each
   version with backoff, treats a 404 as already gone and finishes the run on a
   bad id instead of stopping: the 1.3.5 cleanup stopped after 1 of 154
   versions on a single transient API error.
+
+### Security
+- The three KrakenD exceptions leave `.trivyignore.yaml` ahead of their
+  2026-11-07 expiry: CVE-2026-56864 and CVE-2026-56865 (x/mod) and
+  CVE-2026-84445 (grpc) are fixed in the 3.0.1 binary. The image scans clean
+  at HIGH/CRITICAL with no ignore file.
 
 ## [1.3.6] - 2026-10-07
 
