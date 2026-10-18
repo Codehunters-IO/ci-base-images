@@ -15,10 +15,11 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   (`keep_releases: 1`) to migrate. Go moves with it: `go version -m` on the
   3.0.1 binary reports go1.26.9, and a plugin only loads into a binary from the
   same toolchain.
-- The ci-templates pins move to v2.2.2. The cleanup's delete step retries each
-  version with backoff, treats a 404 as already gone and finishes the run on a
-  bad id instead of stopping: the 1.3.5 cleanup stopped after 1 of 154
-  versions on a single transient API error.
+- The ci-templates pins move to v2.4.2, through v2.2.2. The cleanup's delete
+  step retries each version with backoff, treats a 404 as already gone and
+  finishes the run on a bad id instead of stopping: the 1.3.5 cleanup stopped
+  after 1 of 154 versions on a single transient API error. Nothing between
+  v2.2.2 and v2.4.2 touches the five image workflows pinned here.
 
 ### Security
 - The three KrakenD exceptions leave `.trivyignore.yaml` ahead of their
