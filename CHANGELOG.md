@@ -7,6 +7,13 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Changed
+- **The package cleanup deletes on its own.** `build-publish.yml` calls
+  `cleanup-packages.yml` once a `v*` tag is published and signed, retiring the
+  previous release with its aliases and signatures; the Sunday run deletes the
+  unreferenced versions instead of only reporting them. A manual dispatch still
+  defaults to a dry run. The two never overlap (`concurrency: ghcr-cleanup`).
+
 ## [2.0.0] - 2026-10-18
 
 ### Upgrading from 1.x

@@ -1001,8 +1001,8 @@ A release's cosign signatures (versions tagged `sha256-<digest>`) are deleted
 with it; the signatures of what is kept stay.
 
 A deleted version cannot be restored, and with one release kept there is no
-overlap: an exact pin breaks on the first cleanup after the next release. Pin
-an alias instead:
+overlap: an exact pin breaks as soon as the next release is published. Pin an
+alias instead:
 
 | Pin | Survives | Breaks when |
 |---|---|---|
@@ -1015,9 +1015,12 @@ your side. That is the trade for not breaking: if a pipeline needs a frozen
 image, pin the digest it ran with (`@sha256:…`) for as long as that release is
 current, and expect to move it.
 
-`cleanup-packages.yml` enforces this (`keep_releases: 1`). Its weekly run only
-reports; deleting is a manual dispatch with `dry_run` off, after reading the
-plan in the job summary.
+`cleanup-packages.yml` enforces this (`keep_releases: 1`), and deletes on two
+occasions. `build-publish.yml` calls it at the end of every `v*` tag run, once
+the release is published and signed, so the previous release is gone when the
+tag run goes green; a failed publish or signature skips it. The Sunday run
+sweeps the unreferenced versions the week's `main` pushes left behind. A manual
+dispatch defaults to `dry_run`, and its job summary shows the plan.
 
 ---
 
