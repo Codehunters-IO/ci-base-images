@@ -10,14 +10,14 @@ six for CI, five for runtime:
 
 | Variant         | Tag suffix    | Base image                              | libc  | Approx size | Use case                                  |
 |-----------------|---------------|-----------------------------------------|-------|-------------|-------------------------------------------|
-| **JDK**         | _(none)_      | `eclipse-temurin:21-jdk-alpine`         | musl  | ~450 MB     | `codehunters-ms-*` build/test/deploy (default)  |
-| **JDK 25**      | `-jdk25`      | `eclipse-temurin:25-jdk-alpine`         | musl  | ~450 MB     | the same, for services on the JDK 25 LTS  |
-| **GraalVM**     | `-graalvm`    | `ghcr.io/graalvm/native-image-community:21` | glibc | ~1.1 GB     | `nativeCompile` / `native-image` jobs     |
-| **GraalVM 25**  | `-graalvm25`  | `ghcr.io/graalvm/native-image-community:25` | glibc | ~1.1 GB     | the same, for services on the JDK 25 LTS  |
-| **KrakenD**     | `-krakend`    | `alpine:3.24` + `krakend` + `golang`    | musl  | ~700 MB     | `codehunters-gw-krakend` gateway pipelines      |
-| **Node**        | `-node`       | `node:20.20.2-alpine`                   | musl  | ~210 MB     | Hardhat/Solidity + TypeScript SDK pipelines |
+| **JDK**         | _(none)_      | `eclipse-temurin:21-jdk-alpine`         | musl  | ~410 MB     | `codehunters-ms-*` build/test/deploy (default)  |
+| **JDK 25**      | `-jdk25`      | `eclipse-temurin:25-jdk-alpine`         | musl  | ~345 MB     | the same, for services on the JDK 25 LTS  |
+| **GraalVM**     | `-graalvm`    | `ghcr.io/graalvm/native-image-community:21` | glibc | ~820 MB     | `nativeCompile` / `native-image` jobs     |
+| **GraalVM 25**  | `-graalvm25`  | `ghcr.io/graalvm/native-image-community:25` | glibc | ~770 MB     | the same, for services on the JDK 25 LTS  |
+| **KrakenD**     | `-krakend`    | `alpine:3.24` + `krakend` + `golang`    | musl  | ~295 MB     | `codehunters-gw-krakend` gateway pipelines      |
+| **Node**        | `-node`       | `node:20.20.2-alpine`                   | musl  | ~220 MB     | Hardhat/Solidity + TypeScript SDK pipelines |
 
-> **Java 21 is still the default.** The unsuffixed tags — `:latest`, `:1`, `:X.Y.Z` —
+> **Java 21 is still the default.** The unsuffixed tags — `:latest`, `:2`, `:X.Y.Z` —
 > remain JDK 21, and nothing pinning them changes. Java 25 is opt-in per
 > repository by moving to the `-jdk25` / `-java25-runtime` / `-graalvm25`
 > suffix. Both majors are built from the same commit and share the same semver,
@@ -30,6 +30,9 @@ six for CI, five for runtime:
 
 Architectures for every variant: `linux/amd64`, `linux/arm64` (multi-arch manifest).
 
+Sizes are uncompressed, measured on arm64 with Docker Desktop for 1.3.5. CI's
+size budgets read a larger number for the same image — see `pr-validation.yml`.
+
 ---
 
 ## Two families
@@ -41,7 +44,7 @@ Architectures for every variant: `linux/amd64`, `linux/arm64` (multi-arch manife
 | Java | JDK 21 or 25 + Gradle | JRE 21 or 25, or distroless for native binaries |
 | Node | + `build-base`, `python3` | runtime only, no compiler |
 | Also carries | Docker CLI, AWS CLI, git, gnupg | none of it |
-| Size | 210 MB – 1.1 GB | 60 – 190 MB |
+| Size | 220 – 820 MB | 8 – 80 MB |
 
 The second row of "also carries" is the one that matters. A Docker client and
 an AWS CLI inside a container that serves traffic are tools an attacker
@@ -63,12 +66,12 @@ Multi-stage is the intended shape — build in the `ci` image, ship in the
 `runtime` one:
 
 ```dockerfile
-FROM ghcr.io/codehunters-io/ci-base-images:1 AS build
+FROM ghcr.io/codehunters-io/ci-base-images:2 AS build
 WORKDIR /src
 COPY . .
 RUN ./gradlew bootJar --no-daemon
 
-FROM ghcr.io/codehunters-io/ci-base-images:1-java-runtime
+FROM ghcr.io/codehunters-io/ci-base-images:2-java-runtime
 COPY --from=build /src/build/libs/*.jar /app/app.jar
 CMD ["java", "-jar", "/app/app.jar"]
 ```
@@ -99,7 +102,7 @@ Variant-specific tooling:
 | GraalVM CE JDK 21 | ❌  | ❌     | ✅      | ❌         | ❌      | ❌   | `ghcr.io/graalvm/native-image-community:21` |
 | GraalVM CE JDK 25 | ❌  | ❌     | ❌      | ✅         | ❌      | ❌   | `ghcr.io/graalvm/native-image-community:25` |
 | `native-image`    | ❌  | ❌     | ✅      | ✅         | ❌      | ❌   | preinstalled in GraalVM 21+      |
-| Gradle CLI 9.7.1  | ✅  | ✅     | ✅      | ✅         | ❌      | ❌   | services.gradle.org (SHA-256 pinned) |
+| Gradle CLI 9.7.1  | ✅  | ✅     | ✅      | ✅         | ❌      | ❌   | services.gradle.org (SHA-256 pinned); bundled jackson/jsoup replaced with fixed releases (`GRADLE_PATCHES`) |
 | KrakenD CLI       | ❌  | ❌     | ❌      | ❌         | ✅      | ❌   | `krakend:${KRAKEND_VERSION}` (multi-stage COPY) |
 | Go toolchain      | ❌  | ❌     | ❌      | ❌         | ✅      | ❌   | `golang:${GO_VERSION}-alpine` (multi-stage COPY) |
 | `build-base`      | ❌  | ❌     | ❌      | ❌         | ✅      | ✅   | apk (Go plugins on KrakenD; node-gyp on Node) |
@@ -173,16 +176,16 @@ Node variant (`-node` suffix):
 | `sha-<short>-node`      | Every build                                 | Debugging; deleted with its release |
 | `main-node`             | Push to `main`                              | Bleeding edge                     |
 
-**Production rule:** pin the major alias (`:1`, `:1-graalvm`,
-`:1-java-runtime`). Only the newest release stays published — see
-[Supported releases](#supported-releases) — so an exact pin like `:1.3.6`
-stops pulling once the next release ships, while `:1` follows every 1.x
-release and only changes meaning at 2.0.0, which is a breaking change anyway.
+**Production rule:** pin the major alias (`:2`, `:2-graalvm`,
+`:2-java-runtime`). Only the newest release stays published — see
+[Supported releases](#supported-releases) — so an exact pin like `:2.0.0`
+stops pulling once the next release ships, while `:2` follows every 2.x
+release and only changes meaning at 3.0.0, which is a breaking change anyway.
 Never a rolling tag — `:latest`, `:graalvm`, `:node`, `:java-runtime` — in
 release or prod paths: those move on every merge to `main`, not on releases.
 All eleven variants are built from the same commit and share the same semver:
 pick the variant by suffix, the version by number. That includes the Java
-major — `:1` and `:1-jdk25` are the same release, differing only in the JDK
+major — `:2` and `:2-jdk25` are the same release, differing only in the JDK
 they carry.
 
 ---
@@ -200,7 +203,7 @@ jobs:
   build:
     runs-on: ubuntu-latest
     container:
-      image: ghcr.io/codehunters-io/ci-base-images:1
+      image: ghcr.io/codehunters-io/ci-base-images:2
       credentials:
         username: ${{ github.actor }}
         password: ${{ secrets.GITHUB_TOKEN }}
@@ -225,13 +228,13 @@ bump:
 
 | Stage        | From                  | To                            |
 |--------------|-----------------------|-------------------------------|
-| build / test | `:1`                  | `:1-jdk25`                    |
-| `nativeCompile` | `:1-graalvm`       | `:1-graalvm25`                |
-| app image    | `:1-java-runtime`     | `:1-java25-runtime`           |
+| build / test | `:2`                  | `:2-jdk25`                    |
+| `nativeCompile` | `:2-graalvm`       | `:2-graalvm25`                |
+| app image    | `:2-java-runtime`     | `:2-java25-runtime`           |
 
 ```yaml
     container:
-      image: ghcr.io/codehunters-io/ci-base-images:1-jdk25
+      image: ghcr.io/codehunters-io/ci-base-images:2-jdk25
       credentials:
         username: ${{ github.actor }}
         password: ${{ secrets.GITHUB_TOKEN }}
@@ -252,12 +255,12 @@ traffic.
 **Spring Boot on Java 21** — the default, unsuffixed tag:
 
 ```dockerfile
-FROM ghcr.io/codehunters-io/ci-base-images:1 AS build
+FROM ghcr.io/codehunters-io/ci-base-images:2 AS build
 WORKDIR /src
 COPY . .
 RUN ./gradlew bootJar --no-daemon --build-cache
 
-FROM ghcr.io/codehunters-io/ci-base-images:1-java-runtime
+FROM ghcr.io/codehunters-io/ci-base-images:2-java-runtime
 COPY --from=build /src/build/libs/*.jar /app/app.jar
 EXPOSE 8080
 CMD ["java", "-jar", "/app/app.jar"]
@@ -272,12 +275,12 @@ it. `tini` is the entrypoint, so anything the app forks gets reaped.
 **Spring Boot on Java 25** — both stages move together:
 
 ```dockerfile
-FROM ghcr.io/codehunters-io/ci-base-images:1-jdk25 AS build
+FROM ghcr.io/codehunters-io/ci-base-images:2-jdk25 AS build
 WORKDIR /src
 COPY . .
 RUN ./gradlew bootJar --no-daemon --build-cache
 
-FROM ghcr.io/codehunters-io/ci-base-images:1-java25-runtime
+FROM ghcr.io/codehunters-io/ci-base-images:2-java25-runtime
 COPY --from=build /src/build/libs/*.jar /app/app.jar
 EXPOSE 8080
 CMD ["java", "-jar", "/app/app.jar"]
@@ -291,12 +294,12 @@ deploy.
 **GraalVM native binary** — build on GraalVM, ship on distroless:
 
 ```dockerfile
-FROM ghcr.io/codehunters-io/ci-base-images:1-graalvm AS build
+FROM ghcr.io/codehunters-io/ci-base-images:2-graalvm AS build
 WORKDIR /src
 COPY . .
 RUN ./gradlew nativeCompile --no-daemon --build-cache
 
-FROM ghcr.io/codehunters-io/ci-base-images:1-native-runtime
+FROM ghcr.io/codehunters-io/ci-base-images:2-native-runtime
 COPY --from=build /src/build/native/nativeCompile/app /app/app
 EXPOSE 8080
 ENTRYPOINT ["/app/app"]
@@ -312,14 +315,14 @@ unavailable in the final stage: everything must be done in the build stage.
 **Node service:**
 
 ```dockerfile
-FROM ghcr.io/codehunters-io/ci-base-images:1-node AS build
+FROM ghcr.io/codehunters-io/ci-base-images:2-node AS build
 WORKDIR /src
 COPY package*.json ./
 RUN npm ci
 COPY . .
 RUN npm run build && npm prune --omit=dev
 
-FROM ghcr.io/codehunters-io/ci-base-images:1-node-runtime
+FROM ghcr.io/codehunters-io/ci-base-images:2-node-runtime
 COPY --from=build /src/node_modules /app/node_modules
 COPY --from=build /src/dist /app/dist
 EXPOSE 3000
@@ -334,14 +337,14 @@ stage.
 **React/Vite static build:**
 
 ```dockerfile
-FROM ghcr.io/codehunters-io/ci-base-images:1-node AS build
+FROM ghcr.io/codehunters-io/ci-base-images:2-node AS build
 WORKDIR /src
 COPY package*.json ./
 RUN npm ci
 COPY . .
 RUN npm run build
 
-FROM ghcr.io/codehunters-io/ci-base-images:1-web-runtime
+FROM ghcr.io/codehunters-io/ci-base-images:2-web-runtime
 COPY --from=build /src/dist /usr/share/nginx/html
 ```
 
@@ -367,7 +370,7 @@ jobs:
   native-build:
     runs-on: ubuntu-latest
     container:
-      image: ghcr.io/codehunters-io/ci-base-images:1-graalvm
+      image: ghcr.io/codehunters-io/ci-base-images:2-graalvm
       credentials:
         username: ${{ github.actor }}
         password: ${{ secrets.GITHUB_TOKEN }}
@@ -385,7 +388,7 @@ jobs:
   gateway-build:
     runs-on: ubuntu-latest
     container:
-      image: ghcr.io/codehunters-io/ci-base-images:1-krakend
+      image: ghcr.io/codehunters-io/ci-base-images:2-krakend
       credentials:
         username: ${{ github.actor }}
         password: ${{ secrets.GITHUB_TOKEN }}
@@ -415,7 +418,7 @@ jobs:
   contracts:
     runs-on: ubuntu-latest
     container:
-      image: ghcr.io/codehunters-io/ci-base-images:1-node
+      image: ghcr.io/codehunters-io/ci-base-images:2-node
       credentials:
         username: ${{ github.actor }}
         password: ${{ secrets.GITHUB_TOKEN }}
@@ -517,7 +520,7 @@ jobs:
 
 ```yaml
 container:
-  image: ghcr.io/codehunters-io/ci-base-images:1
+  image: ghcr.io/codehunters-io/ci-base-images:2
   credentials:
     username: ${{ github.actor }}
     password: ${{ secrets.GITHUB_TOKEN }}
@@ -625,7 +628,7 @@ Inside `krakend-main-pipeline.yml`:
 
 ```yaml
 container:
-  image: ghcr.io/codehunters-io/ci-base-images:1-krakend
+  image: ghcr.io/codehunters-io/ci-base-images:2-krakend
   credentials:
     username: ${{ github.actor }}
     password: ${{ secrets.GITHUB_TOKEN }}
@@ -634,7 +637,7 @@ container:
 One pin bumps every KrakenD stage at once. The KrakenD CLI version and Go
 toolchain are baked into the image (`KRAKEND_VERSION` + `GO_VERSION` build
 args); upgrading them requires a new image release, which avoids drift
-between gateway runtime (`krakend:2.13.11`) and CI plugin builds.
+between gateway runtime (`krakend:3.0.1`) and CI plugin builds.
 
 ---
 
@@ -706,7 +709,7 @@ trade.
 
 | Candidate                                  | Reason rejected                                        |
 |--------------------------------------------|--------------------------------------------------------|
-| Bump `images/ci/jdk` from 21 to 25          | Breaks every consumer pinned to `:latest` or `:1`        |
+| Bump `images/ci/jdk` from 21 to 25          | Breaks every consumer pinned to `:latest` or `:2`        |
 | One Dockerfile, `ARG JAVA_VERSION`          | Dependabot cannot see or update a non-literal `FROM`    |
 | Temurin 26                                  | Not an LTS; the consumers track LTS majors              |
 | Java 27                                     | Not an LTS either; 29 is the next one (Sep 2027)        |
@@ -718,7 +721,7 @@ Alpine 3.24 is the base; the `krakend` binary is COPYed from the official
 `golang:${GO_VERSION}-alpine`. Three reasons for this shape:
 
 1. **ABI compatibility** for `go build -buildmode=plugin`: the runtime image
-   (`krakend:2.13.11`) is built against a specific Go version — go1.26.8,
+   (`krakend:3.0.1`) is built against a specific Go version — go1.26.9,
    read off the binary with `go version -m`, not guessed. Plugin `.so` files
    must be built with the **exact same** Go version or they fail to load. apk's
    Go is typically behind — multi-stage COPY pins the version deterministically,
@@ -732,8 +735,8 @@ Alpine 3.24 is the base; the `krakend` binary is COPYed from the official
 
 | Candidate                                          | Reason rejected                                          |
 |----------------------------------------------------|----------------------------------------------------------|
-| `krakend:2.13.11` directly as CI base              | Lacks Go, docker, aws, ssh — defeats the purpose         |
-| `golang:1.26.8-alpine` directly as CI base         | Lacks krakend CLI, aws v2, docker                        |
+| `krakend:3.0.1` directly as CI base                | Lacks Go, docker, aws, ssh — defeats the purpose         |
+| `golang:1.26.9-alpine` directly as CI base         | Lacks krakend CLI, aws v2, docker                        |
 | Extending the JDK variant with Go + KrakenD        | ~1.2 GB image; pulls Temurin for no gateway purpose      |
 | `debian:bookworm-slim` + apt Go                    | apt Go = 1.21; ABI mismatch with `krakend/builder` (1.26)|
 
@@ -949,18 +952,18 @@ does not concern you, which was already the rule.
 Semver. Cut a new release with:
 
 ```bash
-git tag -a v1.3.6 -m "Release v1.3.6"
-git push origin v1.3.6
+git tag -a v2.0.0 -m "Release v2.0.0"
+git push origin v2.0.0
 ```
 
 The git tag carries the `v`; the published image tags do not. `docker/metadata-action`
-strips it, so `v1.3.6` becomes `:1.3.6`.
+strips it, so `v2.0.0` becomes `:2.0.0`.
 
 The `build-publish.yml` workflow picks up the tag and publishes **all eleven
-variants** at the same semver — `:1.3.6`, `:1.3.6-jdk25`, `:1.3.6-graalvm`,
-`:1.3.6-graalvm25`, `:1.3.6-krakend`, `:1.3.6-node`, `:1.3.6-java-runtime`,
-`:1.3.6-java25-runtime`, `:1.3.6-node-runtime`, `:1.3.6-web-runtime`,
-`:1.3.6-native-runtime` — plus the matching `:1.3` and `:1` tags for each, and
+variants** at the same semver — `:2.0.0`, `:2.0.0-jdk25`, `:2.0.0-graalvm`,
+`:2.0.0-graalvm25`, `:2.0.0-krakend`, `:2.0.0-node`, `:2.0.0-java-runtime`,
+`:2.0.0-java25-runtime`, `:2.0.0-node-runtime`, `:2.0.0-web-runtime`,
+`:2.0.0-native-runtime` — plus the matching `:2.0` and `:2` tags for each, and
 `:sha-<short>` per variant.
 
 Rolling tags are **not** updated on tag pushes —
@@ -1003,9 +1006,9 @@ an alias instead:
 
 | Pin | Survives | Breaks when |
 |---|---|---|
-| `:1` (or `:1-graalvm`…) | every 1.x release | 2.0.0 ships — a major is a breaking change anyway |
-| `:1.3` | patches | 1.4.0 ships: `1.3` no longer belongs to the newest release |
-| `:1.3.6` | nothing | 1.3.7 ships |
+| `:2` (or `:2-graalvm`…) | every 2.x release | 3.0.0 ships — a major is a breaking change anyway |
+| `:2.0` | patches | 2.1.0 ships: `2.0` no longer belongs to the newest release |
+| `:2.0.0` | nothing | 2.0.1 ships |
 
 An alias moves on your next pull, so the build changes without a commit on
 your side. That is the trade for not breaking: if a pipeline needs a frozen
@@ -1041,7 +1044,7 @@ jobs:
   build:
     runs-on: ubuntu-latest
     container:
-      image: ghcr.io/codehunters-io/ci-base-images:1
+      image: ghcr.io/codehunters-io/ci-base-images:2
       credentials:
         username: ${{ github.actor }}
         password: ${{ secrets.GITHUB_TOKEN }}
@@ -1114,7 +1117,7 @@ which the SBOM and provenance alone do not: anyone with write access to the
 package could push an image under the same tags.
 
 ```bash
-cosign verify ghcr.io/codehunters-io/ci-base-images:1 \
+cosign verify ghcr.io/codehunters-io/ci-base-images:2 \
   --certificate-oidc-issuer https://token.actions.githubusercontent.com \
   --certificate-identity-regexp '^https://github.com/Codehunters-IO/ci-templates/\.github/workflows/shared-sign-images\.yml@' \
   --certificate-github-workflow-repository Codehunters-IO/ci-base-images
