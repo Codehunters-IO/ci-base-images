@@ -8,11 +8,33 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ## [Unreleased]
 
 ### Changed
+- **BREAKING — the KrakenD image goes back to KrakenD 2.13.11 and Go 1.26.8.**
+  2.0.0 moved it to 3.0.1 on the premise that plugins built there would load
+  into a 3.x runtime. That premise is wrong: **KrakenD CE 3.0 removed Go plugin
+  loading entirely**, and this variant exists to build plugins. Measured
+  2026-10-18, same configuration against both binaries — `krakend:2.13.4` runs
+  its plugin loader (`[SERVICE: Plugin Loader] Starting loading process`),
+  `krakend:3.0.1` prints no loader output at all, while still accepting the
+  `plugin` and `plugin/http-server` blocks and still answering `Syntax OK!`.
+  A plugin built in the 2.0.0 image compiles and never loads, and a gateway
+  pointed at 3.0.1 boots clean serving every route unauthenticated. The
+  `check-plugin` and `test-plugin` subcommands are gone from 3.x as well.
+  2.13.11 is the newest 2.x; Go moves back with it, since `go version -m` on
+  that binary reports go1.26.8. A KrakenD major is a major of this image under
+  the versioning policy, in either direction.
 - **The package cleanup deletes on its own.** `build-publish.yml` calls
   `cleanup-packages.yml` once a `v*` tag is published and signed, retiring the
   previous release with its aliases and signatures; the Sunday run deletes the
   unreferenced versions instead of only reporting them. A manual dispatch still
   defaults to a dry run. The two never overlap (`concurrency: ghcr-cleanup`).
+
+### Security
+- **The three KrakenD exceptions return to `.trivyignore.yaml`**, restored
+  verbatim from before 2.0.0: CVE-2026-56864 and CVE-2026-56865 (x/mod) and
+  CVE-2026-84445 (grpc) are vendored into the 2.13.11 binary and no 2.x release
+  carries the fixes. This is the price of staying on 2.x and it is explicit
+  rather than silent — each entry keeps its reachability statement and its
+  2026-11-07 expiry, so it fails the build again if it outlives its reason.
 
 ## [2.0.0] - 2026-10-18
 
