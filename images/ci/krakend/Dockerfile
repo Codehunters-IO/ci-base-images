@@ -6,11 +6,21 @@
 # Docker CLI + buildx, GNU userland.
 # Usage: jobs.<id>.container: ghcr.io/codehunters/ci-base-images:vX.Y.Z-krakend
 
-ARG KRAKEND_VERSION=3.0.1
-ARG GO_VERSION=1.26.9
+# KrakenD stays on 2.x. CE 3.0 removed Go plugin loading altogether, and this
+# variant exists to build plugins: measured 2026-10-18, the same configuration
+# against both binaries shows krakend:2.13.4 running its plugin loader and
+# krakend:3.0.1 printing no loader output at all. 3.0.1 still accepts the
+# `plugin` and `plugin/http-server` config blocks and still answers "Syntax
+# OK!", so a gateway on it boots clean and serves every route unauthenticated.
+# A plugin built here would compile and never load.
+#
+# 2.13.11 is the newest 2.x. Going back to it is a major of this image under
+# the versioning policy, the same as the move away was.
+ARG KRAKEND_VERSION=2.13.11
+ARG GO_VERSION=1.26.8
 
 # Stage 1 — pull the KrakenD CLI binary from the official image.
-FROM krakend:3.0.1@sha256:c974c4c5a0b5276340641749488e183ace071494d832381e42d222f5398265b4 AS krakend-src
+FROM krakend:2.13.11@sha256:26eb32dbb0e679c62170b21b4efb0729dc00262afd98fe6210110dbbbdd6425f AS krakend-src
 
 # Stage 2 — pull the Go toolchain from the official Alpine image (apk Go is
 # typically behind the version used by krakend/builder; matching the exact
@@ -20,12 +30,12 @@ FROM krakend:3.0.1@sha256:c974c4c5a0b5276340641749488e183ace071494d832381e42d222
 # KrakenD release was built with, or plugins refuse to load at runtime. Read it
 # off the binary rather than guessing:
 #
-#   id=$(docker create krakend:3.0.1)
+#   id=$(docker create krakend:2.13.11)
 #   docker cp "$id:/usr/bin/krakend" /tmp/krakend && docker rm -f "$id"
-#   go version -m /tmp/krakend | head -1    # -> go1.26.9
+#   go version -m /tmp/krakend | head -1    # -> go1.26.8
 #
 # Bump KRAKEND_VERSION and GO_VERSION together, never apart.
-FROM golang:1.26.9-alpine@sha256:3082400e369fa24d5fc60bca20edab3f6d604e0c5a690ec66b295eff4dd87ade AS go-src
+FROM golang:1.26.8-alpine@sha256:8ac98ca534ac3f51e1f420a1dd2c15e74c75cfa0f23f3ad27eb5d7236c349a0c AS go-src
 
 # Pruned here rather than after the COPY below: a deletion in a later layer
 # writes a whiteout and the bytes still ship. `test/` and `api/` are the Go
@@ -41,8 +51,8 @@ FROM alpine:3.24@sha256:294b683cb724975bec92580e1e685676bd4b50bda910ddb8c51d4cab
 # for an ARG declared without one. `ARG TARGETARCH=amd64` shadows it, and the
 # arm64 build then downloads x86_64 artefacts.
 ARG TARGETARCH
-ARG KRAKEND_VERSION=3.0.1
-ARG GO_VERSION=1.26.9
+ARG KRAKEND_VERSION=2.13.11
+ARG GO_VERSION=1.26.8
 # AWS_CLI_VERSION only applies if AWS_CLI_FROM_BUNDLE=1 forces the glibc bundle;
 # the musl path installs aws-cli from the Alpine community repo and ignores it.
 # The pin is the last release that ran under gcompat, kept for that escape hatch.
