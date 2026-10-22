@@ -30,7 +30,7 @@ permissions:
 jobs:
   scan:
     # Pinned, not @v1 — see the note in pr-validation.yml.
-    uses: Codehunters-IO/ci-templates/.github/workflows/shared-scan-published-images.yml@867252511691415051eb4ac3ab5522d2d4427bb6 # v2.4.2
+    uses: Codehunters-IO/ci-templates/.github/workflows/shared-scan-published-images.yml@4e58782f5f91dbdd4ee1f771ed8ab48b683ba8fd # v2.6.0
     with:
       # A version older than a variant fails on that variant, because the tag
       # was never published: the Java 25 family arrived in 1.2.0, so scanning
