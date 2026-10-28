@@ -118,6 +118,26 @@ published from near-identical directories, and a `FROM` edited in one with the
 label edited in the other leaves both files internally consistent, so
 `check-pins.sh` cannot see it. The JVM is asked instead.
 
+The KrakenD image is asked two questions of that same shape, because its whole
+purpose — compiling Go plugins that load into a KrakenD runtime — is something
+no pin can confirm:
+
+- **Can this binary load a plugin at all?** KrakenD CE 3.0 removed Go plugin
+  loading. It removed it silently: 3.0.1 still accepts the `plugin` and
+  `plugin/http-server` config blocks and still answers `Syntax OK!`, so a plugin
+  built against it compiles and never loads, and a gateway on it boots clean
+  serving every route unauthenticated. What 3.x no longer carries are the
+  `check-plugin` and `test-plugin` subcommands, so the smoke test invokes them
+  and fails the build when they are gone.
+- **Was the Go toolchain beside it the one that binary was built with?** A Go
+  plugin loads into nothing else, down to the patch. `krakend version` reports
+  the toolchain it was compiled with, so that value is compared against
+  `go version` rather than trusted to the `GO_VERSION` pin.
+
+Both are measured, not asserted from release notes: `check-plugin --help` exits
+0 on `krakend:2.13.11` and 255 on `krakend:3.0.1`, and the two binaries report
+Go 1.26.8 and 1.26.9 respectively.
+
 ---
 
 ## Image tags
