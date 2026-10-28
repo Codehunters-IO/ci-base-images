@@ -39,6 +39,18 @@ updates:
       # bytes that get signed and anchored on a chain.
       - dependency-name: "node"
         update-types: ["version-update:semver-major"]
+      # The KrakenD major is this variant's reason to exist, not a version
+      # detail. CE 3.0 removed Go plugin loading and images/ci/krakend exists to
+      # build plugins, so a plugin built on 3.x compiles and never loads. The
+      # removal is invisible to anything that reads a tag: measured 2026-10-18,
+      # krakend:3.0.1 still accepts the `plugin` and `plugin/http-server` config
+      # blocks and still answers "Syntax OK!" while running no plugin loader at
+      # all. Dependabot sees only a newer tag — it opened 2.13.11 -> 3.0.1 two
+      # days after the revert away from it. A KrakenD major moves by hand, with
+      # GO_VERSION, as a release decision; 2.x patches and digests still flow
+      # through.
+      - dependency-name: "krakend"
+        update-types: ["version-update:semver-major"]
       # Go is not an independent dependency here: images/ci/krakend compiles
       # gateway plugins with `-buildmode=plugin`, and a plugin only loads into a
       # binary built by the same Go toolchain. The version that matters is the

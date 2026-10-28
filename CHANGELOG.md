@@ -22,6 +22,13 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   2.13.11 is the newest 2.x; Go moves back with it, since `go version -m` on
   that binary reports go1.26.8. A KrakenD major is a major of this image under
   the versioning policy, in either direction.
+- **A KrakenD major is no longer something an automated bump can propose.**
+  `.github/dependabot.yml` ignores `version-update:semver-major` for `krakend`,
+  for the same reason the JDK and Node majors are ignored: the major is this
+  variant's contract, not a dependency detail. It had already been proposed — a
+  bump back to 3.0.1 was opened two days after the move away from it, and
+  nothing in the repository would have refused that merge. 2.x patches and
+  digest updates still flow through.
 - **The package cleanup deletes on its own.** `build-publish.yml` calls
   `cleanup-packages.yml` once a `v*` tag is published and signed, retiring the
   previous release with its aliases and signatures; the Sunday run deletes the
