@@ -7,6 +7,22 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+- **The KrakenD smoke test now asks the binary what it can do, not what version
+  it is.** Two assertions, both on the `krakend` variant and both running twice
+  — baked into the image build and again against the published image through
+  `run-smoke.sh`. First, `check-plugin` and `test-plugin` must exist: CE 3.0
+  removed Go plugin loading and dropped those two subcommands, and every other
+  signal stays green when it happens (3.0.1 accepts the `plugin` and
+  `plugin/http-server` blocks, answers `Syntax OK!` and boots clean). Second,
+  the Go toolchain in the image must be the one the KrakenD binary was compiled
+  with, compared against the `Go Version` that `krakend version` reports,
+  because a Go plugin loads into nothing else down to the patch. Measured
+  2026-10-28: `check-plugin --help` exits 0 on `krakend:2.13.11` and 255 on
+  `krakend:3.0.1`. Each guard was confirmed against its own negative control,
+  and neither masks the other — 3.0.1 passes the toolchain comparison and fails
+  only the capability check.
+
 ### Changed
 - **BREAKING — the KrakenD image goes back to KrakenD 2.13.11 and Go 1.26.8.**
   2.0.0 moved it to 3.0.1 on the premise that plugins built there would load

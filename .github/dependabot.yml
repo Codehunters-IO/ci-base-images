@@ -48,7 +48,9 @@ updates:
       # all. Dependabot sees only a newer tag — it opened 2.13.11 -> 3.0.1 two
       # days after the revert away from it. A KrakenD major moves by hand, with
       # GO_VERSION, as a release decision; 2.x patches and digests still flow
-      # through.
+      # through. This rule is the convenience; smoke-test.sh is the guard — it
+      # asks the binary whether it can still load a plugin, so a major that gets
+      # in by hand fails the build anyway.
       - dependency-name: "krakend"
         update-types: ["version-update:semver-major"]
       # Go is not an independent dependency here: images/ci/krakend compiles
