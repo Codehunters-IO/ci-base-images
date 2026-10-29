@@ -45,7 +45,7 @@ FROM golang:1.26.8-alpine@sha256:8ac98ca534ac3f51e1f420a1dd2c15e74c75cfa0f23f3ad
 RUN rm -rf /usr/local/go/test /usr/local/go/api /usr/local/go/doc
 
 # Stage 3 — final CI image.
-FROM alpine:3.24@sha256:294b683cb724975bec92580e1e685676bd4b50bda910ddb8c51d4cabeaec77e6
+FROM alpine:3.24@sha256:be2656061b536c1883c4034790e21d0a09c5aaaf51968b89368a3c0371ea2c9a
 
 # No default: BuildKit fills TARGETARCH with the platform being built, but only
 # for an ARG declared without one. `ARG TARGETARCH=amd64` shadows it, and the
