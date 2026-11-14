@@ -24,6 +24,16 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   only the capability check.
 
 ### Changed
+- **The native runtime image is built on `distroless/base-nossl-debian12`.**
+  It carries the same glibc userland as `base-debian12`, but no OpenSSL. A
+  `native-image` binary links Java's own TLS (JSSE) and never loads `libssl`,
+  so in this image OpenSSL only added CVEs. CVE-2026-84782 (HIGH, `libssl3`)
+  failed Trivy on every image PR from 2026-10-28, and upstream had not yet
+  rebuilt `base-debian12`. `smoke-test-native.sh` now fails if `libssl` or
+  `libcrypto` comes back. A binary that `dlopen`s the system OpenSSL, for
+  example through a JNI library that does not bundle its own, must ship that
+  library itself. The `debian:12-slim` stage that supplies `libz` moves to its
+  current digest.
 - **BREAKING — the KrakenD image goes back to KrakenD 2.13.11 and Go 1.26.8.**
   2.0.0 moved it to 3.0.1 on the premise that plugins built there would load
   into a 3.x runtime. That premise is wrong: **KrakenD CE 3.0 removed Go plugin

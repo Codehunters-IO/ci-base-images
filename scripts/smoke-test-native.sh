@@ -44,6 +44,15 @@ else
     fail=1
 fi
 
+# No OpenSSL: a native-image binary carries Java's own TLS, so libssl here is
+# only CVE surface (CVE-2026-84782 held every image PR red from 2026-10-28).
+if grep -qE "(usr/)?lib/.*lib(ssl|crypto)\.so" "${files}"; then
+    printf "  [FAIL] libssl/libcrypto present — base must be distroless base-nossl\n"
+    fail=1
+else
+    printf "  [OK]   libssl/libcrypto absent\n"
+fi
+
 for absent in "bin/sh" "bin/bash" "bin/busybox" "usr/bin/apt" "usr/bin/docker"; do
     if grep -qE "^${absent}$" "${files}"; then
         printf "  [FAIL] %s present, must not be\n" "${absent}"

@@ -60,7 +60,7 @@ them. Not acceptable in production.
 | Java 25 | `-java25-runtime` | `eclipse-temurin:25-jre-alpine` | uid 10001 | Spring Boot jars on the JDK 25 LTS |
 | Node | `-node-runtime` | `node:20.20.2-alpine` | uid 1000 (`node`) | Node/NestJS services |
 | Web | `-web-runtime` | `nginx:alpine` | uid 101 (`nginx`), port 8080 | React/Vite static builds |
-| Native | `-native-runtime` | `gcr.io/distroless/base-debian12` | uid 65532 | GraalVM `nativeCompile` binaries |
+| Native | `-native-runtime` | `gcr.io/distroless/base-nossl-debian12` | uid 65532 | GraalVM `nativeCompile` binaries |
 
 Multi-stage is the intended shape — build in the `ci` image, ship in the
 `runtime` one:
