@@ -9,12 +9,15 @@
 # it — 282 shared objects, none of them zlib. Without this the binary dies at
 # exec with "error while loading shared libraries: libz.so.1". Staged from the
 # same Debian 12 the distroless image is built from, so the glibc matches.
-FROM debian:12-slim@sha256:7c7b2c966bc9ee8cedfeef67e0e279108992c77681fa595db4a9d65c06ccc587 AS libs
+FROM debian:12-slim@sha256:734a72b3d6142a71993b4bc580ca01d8ca687f77a2c422d96a961d3376b179bc AS libs
 RUN set -eux; \
     mkdir -p /staging; \
     cp -a /usr/lib/*-linux-gnu/libz.so.1* /staging/
 
-FROM gcr.io/distroless/base-debian12:nonroot@sha256:7f0c72cd138b442ae0deeb69c08b1acf5525439ba251a49ad93c320a061567e5
+# base-nossl rather than base: same glibc userland, no OpenSSL. A native-image
+# binary carries Java's own TLS and never loads libssl, so it was only CVE
+# surface here, and the one that kept this image red until upstream rebuilt.
+FROM gcr.io/distroless/base-nossl-debian12:nonroot@sha256:be40c00dfabd86576d92666e87e406714d5618342de1a0c213ad232de255172e
 
 COPY --from=libs /staging/ /usr/lib/
 
@@ -35,5 +38,5 @@ LABEL org.opencontainers.image.title="ci-base-images (native runtime)" \
       io.codehunters.variant="native-runtime" \
       io.codehunters.contents.libc="glibc" \
       io.codehunters.contents.shell="none" \
-      io.codehunters.contents.base="gcr.io/distroless/base-debian12:nonroot" \
+      io.codehunters.contents.base="gcr.io/distroless/base-nossl-debian12:nonroot" \
       io.codehunters.runs-as="nonroot"
