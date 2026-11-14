@@ -83,7 +83,7 @@ jobs:
       contents: read
       packages: write
       id-token: write
-    uses: Codehunters-IO/ci-templates/.github/workflows/shared-sign-images.yml@867252511691415051eb4ac3ab5522d2d4427bb6 # v2.4.2
+    uses: Codehunters-IO/ci-templates/.github/workflows/shared-sign-images.yml@cadd57cae12718b70805b162edc95bc6b7d4696a # v2.8.1
 
   # Retire the previous release once this one is published and signed. Tag
   # pushes only: a main push moves rolling tags and creates no release, so it
