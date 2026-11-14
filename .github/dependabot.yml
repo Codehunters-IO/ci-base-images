@@ -51,6 +51,10 @@ updates:
       # through. This rule is the convenience; smoke-test.sh is the guard — it
       # asks the binary whether it can still load a plugin, so a major that gets
       # in by hand fails the build anyway.
+      #
+      # Licensing closes the question even if plugins came back: KrakenD 3.x
+      # ships under a changed license, and moving to it is a decision for the
+      # platform, not a version bump. Until it is taken, 2.x is the line.
       - dependency-name: "krakend"
         update-types: ["version-update:semver-major"]
       # Go is not an independent dependency here: images/ci/krakend compiles
