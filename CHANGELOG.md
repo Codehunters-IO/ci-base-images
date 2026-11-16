@@ -60,6 +60,7 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   previous release with its aliases and signatures; the Sunday run deletes the
   unreferenced versions instead of only reporting them. A manual dispatch still
   defaults to a dry run. The two never overlap (`concurrency: ghcr-cleanup`).
+- `nginx` 1.31.6 → 1.31.7-alpine (web runtime).
 
 ### Security
 - **The three KrakenD exceptions return to `.trivyignore.yaml`**, restored
