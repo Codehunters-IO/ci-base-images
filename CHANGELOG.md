@@ -7,7 +7,33 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+- **The KrakenD smoke test now asks the binary what it can do, not what version
+  it is.** Two assertions, both on the `krakend` variant and both running twice
+  — baked into the image build and again against the published image through
+  `run-smoke.sh`. First, `check-plugin` and `test-plugin` must exist: CE 3.0
+  removed Go plugin loading and dropped those two subcommands, and every other
+  signal stays green when it happens (3.0.1 accepts the `plugin` and
+  `plugin/http-server` blocks, answers `Syntax OK!` and boots clean). Second,
+  the Go toolchain in the image must be the one the KrakenD binary was compiled
+  with, compared against the `Go Version` that `krakend version` reports,
+  because a Go plugin loads into nothing else down to the patch. Measured
+  2026-10-28: `check-plugin --help` exits 0 on `krakend:2.13.11` and 255 on
+  `krakend:3.0.1`. Each guard was confirmed against its own negative control,
+  and neither masks the other — 3.0.1 passes the toolchain comparison and fails
+  only the capability check.
+
 ### Changed
+- **The native runtime image is built on `distroless/base-nossl-debian12`.**
+  It carries the same glibc userland as `base-debian12`, but no OpenSSL. A
+  `native-image` binary links Java's own TLS (JSSE) and never loads `libssl`,
+  so in this image OpenSSL only added CVEs. CVE-2026-84782 (HIGH, `libssl3`)
+  failed Trivy on every image PR from 2026-10-28, and upstream had not yet
+  rebuilt `base-debian12`. `smoke-test-native.sh` now fails if `libssl` or
+  `libcrypto` comes back. A binary that `dlopen`s the system OpenSSL, for
+  example through a JNI library that does not bundle its own, must ship that
+  library itself. The `debian:12-slim` stage that supplies `libz` moves to its
+  current digest.
 - **BREAKING — the KrakenD image goes back to KrakenD 2.13.11 and Go 1.26.8.**
   2.0.0 moved it to 3.0.1 on the premise that plugins built there would load
   into a 3.x runtime. That premise is wrong: **KrakenD CE 3.0 removed Go plugin
@@ -22,6 +48,13 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   2.13.11 is the newest 2.x; Go moves back with it, since `go version -m` on
   that binary reports go1.26.8. A KrakenD major is a major of this image under
   the versioning policy, in either direction.
+- **A KrakenD major is no longer something an automated bump can propose.**
+  `.github/dependabot.yml` ignores `version-update:semver-major` for `krakend`,
+  for the same reason the JDK and Node majors are ignored: the major is this
+  variant's contract, not a dependency detail. It had already been proposed — a
+  bump back to 3.0.1 was opened two days after the move away from it, and
+  nothing in the repository would have refused that merge. 2.x patches and
+  digest updates still flow through.
 - **The package cleanup deletes on its own.** `build-publish.yml` calls
   `cleanup-packages.yml` once a `v*` tag is published and signed, retiring the
   previous release with its aliases and signatures; the Sunday run deletes the
