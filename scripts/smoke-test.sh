@@ -13,6 +13,14 @@
 # are near-identical copies; a FROM edited in one and a label edited in the
 # other is the likeliest way this breaks, and check-pins.sh cannot see it
 # because both files stay internally consistent. So the running JVM is asked.
+#
+# The krakend variant is asked two questions of the same shape, and for the same
+# reason — a static check reads what a file claims, these read what the image can
+# actually do: whether the KrakenD binary still carries the subcommands that
+# build and load Go plugins (CE 3.0 dropped them), and whether the Go toolchain
+# beside it is the one that binary was built with (a plugin loads into nothing
+# else). Both are the difference between a plugin that loads and one that
+# compiles, ships and silently never loads.
 set -euo pipefail
 
 CI_VARIANT="${CI_VARIANT:-jdk}"
@@ -46,6 +54,53 @@ check_java_major() {
         printf "  [OK]   java major %s matches CI_JAVA_MAJOR\n" "${got}"
     else
         printf "  [FAIL] java major: image claims %s, JVM reports %s\n" "${want}" "${got:-unknown}"
+        fail=1
+    fi
+}
+
+# KrakenD CE 3.0 removed Go plugin loading, and building plugins is the only
+# reason this variant exists. Nothing that reads a version string can see the
+# removal: measured 2026-10-28, krakend:3.0.1 accepts the `plugin` and
+# `plugin/http-server` config blocks and answers "Syntax OK!" exactly as 2.x
+# does, while running no plugin loader at all. What it no longer carries are the
+# two subcommands that build and load plugins — `check-plugin --help` and
+# `test-plugin --help` exit 0 on krakend:2.13.11 and 255 on krakend:3.0.1, and
+# `krakend help` lists neither. So the binary is asked whether it can still load
+# a plugin rather than asked its version: a pin, a label and a FROM that all
+# agree on a major without the capability still fail here. That is what the
+# 2.0.0 release needed and did not have.
+check_krakend_plugin_support() {
+    local sub
+    for sub in check-plugin test-plugin; do
+        if krakend "${sub}" --help >/dev/null 2>&1; then
+            printf "  [OK]   krakend %s — this binary can load Go plugins\n" "${sub}"
+        else
+            printf "  [FAIL] krakend %s is gone: this binary cannot load Go plugins\n" "${sub}"
+            fail=1
+        fi
+    done
+}
+
+# A Go plugin loads only into a binary built by the same Go toolchain, so
+# GO_VERSION is not a free choice — it has to equal the toolchain the pinned
+# KrakenD release was built with. The Dockerfile says so and tells the reader to
+# check it by hand with `go version -m`, and dependabot.yml ignores golang
+# outright for the same reason, after it proposed 1.25.7 -> 1.27.1 against a
+# KrakenD built on 1.26.8. Neither of those stops a hand edit, and check-pins.sh
+# cannot see it: the ARG and the FROM agree whatever version they both name. The
+# binary reports the toolchain it was built with, so the two are compared.
+check_go_matches_krakend() {
+    local want got
+    want=$(krakend version 2>&1 | sed -n 's/^Go Version: *//p' | sed -n 1p)
+    got=$(go version 2>&1 | sed -n 's/.*go\([0-9][0-9.]*\).*/\1/p' | sed -n 1p)
+    if [ -z "${want}" ]; then
+        printf "  [FAIL] go/krakend match: krakend reports no Go Version line\n"
+        fail=1
+    elif [ "${want}" = "${got}" ]; then
+        printf "  [OK]   go %s matches the toolchain krakend was built with\n" "${got}"
+    else
+        printf "  [FAIL] go is %s but krakend was built with %s: plugins will not load\n" \
+            "${got:-unknown}" "${want}"
         fail=1
     fi
 }
@@ -84,6 +139,8 @@ case "${CI_VARIANT}" in
         check "krakend" krakend version
         check "go"      go version
         check "make"    make --version
+        check_krakend_plugin_support
+        check_go_matches_krakend
         ;;
     node)
         check "node"     node --version
