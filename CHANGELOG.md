@@ -61,6 +61,12 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   unreferenced versions instead of only reporting them. A manual dispatch still
   defaults to a dry run. The two never overlap (`concurrency: ghcr-cleanup`).
 - `nginx` 1.31.6 → 1.31.7-alpine (web runtime).
+- The ci-templates pins move to v2.9.0 (from v2.4.2). For the five image
+  workflows pinned here it is hardening only: checkouts stop persisting the
+  token (`persist-credentials: false`, and no script here runs git against the
+  remote), the step summary reads matrix values through `env:` instead of
+  inlining them into the shell, and the login, SARIF, artifact and cosign
+  actions move to newer pins. No input, secret or permission changes.
 
 ### Security
 - **The three KrakenD exceptions return to `.trivyignore.yaml`**, restored
