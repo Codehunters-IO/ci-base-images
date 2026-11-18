@@ -60,7 +60,7 @@ them. Not acceptable in production.
 | Java 25 | `-java25-runtime` | `eclipse-temurin:25-jre-alpine` | uid 10001 | Spring Boot jars on the JDK 25 LTS |
 | Node | `-node-runtime` | `node:20.20.2-alpine` | uid 1000 (`node`) | Node/NestJS services |
 | Web | `-web-runtime` | `nginx:alpine` | uid 101 (`nginx`), port 8080 | React/Vite static builds |
-| Native | `-native-runtime` | `gcr.io/distroless/base-debian12` | uid 65532 | GraalVM `nativeCompile` binaries |
+| Native | `-native-runtime` | `gcr.io/distroless/base-nossl-debian12` | uid 65532 | GraalVM `nativeCompile` binaries |
 
 Multi-stage is the intended shape — build in the `ci` image, ship in the
 `runtime` one:
@@ -117,6 +117,26 @@ smoke test asserts the running JVM reports that same major. Two majors are
 published from near-identical directories, and a `FROM` edited in one with the
 label edited in the other leaves both files internally consistent, so
 `check-pins.sh` cannot see it. The JVM is asked instead.
+
+The KrakenD image is asked two questions of that same shape, because its whole
+purpose — compiling Go plugins that load into a KrakenD runtime — is something
+no pin can confirm:
+
+- **Can this binary load a plugin at all?** KrakenD CE 3.0 removed Go plugin
+  loading. It removed it silently: 3.0.1 still accepts the `plugin` and
+  `plugin/http-server` config blocks and still answers `Syntax OK!`, so a plugin
+  built against it compiles and never loads, and a gateway on it boots clean
+  serving every route unauthenticated. What 3.x no longer carries are the
+  `check-plugin` and `test-plugin` subcommands, so the smoke test invokes them
+  and fails the build when they are gone.
+- **Was the Go toolchain beside it the one that binary was built with?** A Go
+  plugin loads into nothing else, down to the patch. `krakend version` reports
+  the toolchain it was compiled with, so that value is compared against
+  `go version` rather than trusted to the `GO_VERSION` pin.
+
+Both are measured, not asserted from release notes: `check-plugin --help` exits
+0 on `krakend:2.13.11` and 255 on `krakend:3.0.1`, and the two binaries report
+Go 1.26.8 and 1.26.9 respectively.
 
 ---
 
@@ -637,7 +657,7 @@ container:
 One pin bumps every KrakenD stage at once. The KrakenD CLI version and Go
 toolchain are baked into the image (`KRAKEND_VERSION` + `GO_VERSION` build
 args); upgrading them requires a new image release, which avoids drift
-between gateway runtime (`krakend:3.0.1`) and CI plugin builds.
+between gateway runtime (`krakend:2.13.11`) and CI plugin builds.
 
 ---
 
@@ -721,7 +741,7 @@ Alpine 3.24 is the base; the `krakend` binary is COPYed from the official
 `golang:${GO_VERSION}-alpine`. Three reasons for this shape:
 
 1. **ABI compatibility** for `go build -buildmode=plugin`: the runtime image
-   (`krakend:3.0.1`) is built against a specific Go version — go1.26.9,
+   (`krakend:2.13.11`) is built against a specific Go version — go1.26.8,
    read off the binary with `go version -m`, not guessed. Plugin `.so` files
    must be built with the **exact same** Go version or they fail to load. apk's
    Go is typically behind — multi-stage COPY pins the version deterministically,
@@ -735,10 +755,21 @@ Alpine 3.24 is the base; the `krakend` binary is COPYed from the official
 
 | Candidate                                          | Reason rejected                                          |
 |----------------------------------------------------|----------------------------------------------------------|
-| `krakend:3.0.1` directly as CI base                | Lacks Go, docker, aws, ssh — defeats the purpose         |
-| `golang:1.26.9-alpine` directly as CI base         | Lacks krakend CLI, aws v2, docker                        |
+| `krakend:2.13.11` directly as CI base              | Lacks Go, docker, aws, ssh — defeats the purpose         |
+| `golang:1.26.8-alpine` directly as CI base         | Lacks krakend CLI, aws v2, docker                        |
 | Extending the JDK variant with Go + KrakenD        | ~1.2 GB image; pulls Temurin for no gateway purpose      |
 | `debian:bookworm-slim` + apt Go                    | apt Go = 1.21; ABI mismatch with `krakend/builder` (1.26)|
+| KrakenD 3.x for the newer binary and CVE fixes     | CE 3.0 does not load Go plugins; a plugin built here would compile and never load |
+
+**Why this variant cannot follow KrakenD 3.x.** CE 3.0 removed Go plugin
+loading, and this variant exists to build plugins. Measured 2026-10-18 with
+the same configuration against both binaries: `krakend:2.13.4` runs its plugin
+loader (`[SERVICE: Plugin Loader] Starting loading process`), `krakend:3.0.1`
+prints no loader output at all — while still accepting the `plugin` and
+`plugin/http-server` config blocks and still answering `Syntax OK!`. The
+options KrakenD offers are Enterprise, a custom binary on Lura, or staying on
+2.x. The gateway chose 2.x, and this image follows it. 2.13.11 is the newest
+2.x release.
 
 ### Node variant — `node:20.20.2-alpine`
 
@@ -979,6 +1010,7 @@ only on `main` pushes.
 | Go major upgrade (forced by KrakenD runtime ABI bump)   | major |
 | Removing a pre-installed tool from any variant          | major |
 | Switching any variant's base image family               | major |
+| Undoing a major that broke a variant's purpose (e.g. 2.1.0 restoring KrakenD 2.x) | minor |
 | Adding a JDK major as a NEW variant, existing tags unchanged | minor |
 | Adding a pre-installed tool                             | minor |
 | Gradle / AWS CLI / KrakenD / Go minor/patch upgrades    | minor |

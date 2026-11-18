@@ -7,12 +7,86 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [2.1.0] - 2026-11-18
+
+### Upgrading from 2.0.0
+- Nothing to move for anyone pinned to an alias. `:2` and every `:2-<variant>`
+  follow this release; `:2.0` and `:2.0.0` stop pulling once 2.0.0 is retired,
+  which happens as soon as this tag is published and signed.
+- A minor, not a major, although the KrakenD variant changes KrakenD major:
+  this undoes 2.0.0's move to 3.x, which broke the variant's one job (building
+  Go plugins) without changing a tag. Releasing it as 3.0.0 would retire every
+  `:2*` alias and break the ten variants that did not change.
+
+### Fixed
+- **The KrakenD image goes back to KrakenD 2.13.11 and Go 1.26.8.**
+  2.0.0 moved it to 3.0.1 on the premise that plugins built there would load
+  into a 3.x runtime. That premise is wrong: **KrakenD CE 3.0 removed Go plugin
+  loading entirely**, and this variant exists to build plugins. Measured
+  2026-10-18, same configuration against both binaries — `krakend:2.13.4` runs
+  its plugin loader (`[SERVICE: Plugin Loader] Starting loading process`),
+  `krakend:3.0.1` prints no loader output at all, while still accepting the
+  `plugin` and `plugin/http-server` blocks and still answering `Syntax OK!`.
+  A plugin built in the 2.0.0 image compiles and never loads, and a gateway
+  pointed at 3.0.1 boots clean serving every route unauthenticated. The
+  `check-plugin` and `test-plugin` subcommands are gone from 3.x as well.
+  2.13.11 is the newest 2.x; Go moves back with it, since `go version -m` on
+  that binary reports go1.26.8.
+
+### Added
+- **The KrakenD smoke test now asks the binary what it can do, not what version
+  it is.** Two assertions, both on the `krakend` variant and both running twice
+  — baked into the image build and again against the published image through
+  `run-smoke.sh`. First, `check-plugin` and `test-plugin` must exist: CE 3.0
+  removed Go plugin loading and dropped those two subcommands, and every other
+  signal stays green when it happens (3.0.1 accepts the `plugin` and
+  `plugin/http-server` blocks, answers `Syntax OK!` and boots clean). Second,
+  the Go toolchain in the image must be the one the KrakenD binary was compiled
+  with, compared against the `Go Version` that `krakend version` reports,
+  because a Go plugin loads into nothing else down to the patch. Measured
+  2026-10-28: `check-plugin --help` exits 0 on `krakend:2.13.11` and 255 on
+  `krakend:3.0.1`. Each guard was confirmed against its own negative control,
+  and neither masks the other — 3.0.1 passes the toolchain comparison and fails
+  only the capability check.
+
 ### Changed
+- **The native runtime image is built on `distroless/base-nossl-debian12`.**
+  It carries the same glibc userland as `base-debian12`, but no OpenSSL. A
+  `native-image` binary links Java's own TLS (JSSE) and never loads `libssl`,
+  so in this image OpenSSL only added CVEs. CVE-2026-84782 (HIGH, `libssl3`)
+  failed Trivy on every image PR from 2026-10-28, and upstream had not yet
+  rebuilt `base-debian12`. `smoke-test-native.sh` now fails if `libssl` or
+  `libcrypto` comes back. A binary that `dlopen`s the system OpenSSL, for
+  example through a JNI library that does not bundle its own, must ship that
+  library itself. The `debian:12-slim` stage that supplies `libz` moves to its
+  current digest.
+- **A KrakenD major is no longer something an automated bump can propose.**
+  `.github/dependabot.yml` ignores `version-update:semver-major` for `krakend`,
+  for the same reason the JDK and Node majors are ignored: the major is this
+  variant's contract, not a dependency detail. It had already been proposed — a
+  bump back to 3.0.1 was opened two days after the move away from it, and
+  nothing in the repository would have refused that merge. 2.x patches and
+  digest updates still flow through.
 - **The package cleanup deletes on its own.** `build-publish.yml` calls
   `cleanup-packages.yml` once a `v*` tag is published and signed, retiring the
   previous release with its aliases and signatures; the Sunday run deletes the
   unreferenced versions instead of only reporting them. A manual dispatch still
   defaults to a dry run. The two never overlap (`concurrency: ghcr-cleanup`).
+- `nginx` 1.31.6 → 1.31.7-alpine (web runtime).
+- The ci-templates pins move to v2.9.0 (from v2.4.2). For the five image
+  workflows pinned here it is hardening only: checkouts stop persisting the
+  token (`persist-credentials: false`, and no script here runs git against the
+  remote), the step summary reads matrix values through `env:` instead of
+  inlining them into the shell, and the login, SARIF, artifact and cosign
+  actions move to newer pins. No input, secret or permission changes.
+
+### Security
+- **The three KrakenD exceptions return to `.trivyignore.yaml`**, restored
+  verbatim from before 2.0.0: CVE-2026-56864 and CVE-2026-56865 (x/mod) and
+  CVE-2026-84445 (grpc) are vendored into the 2.13.11 binary and no 2.x release
+  carries the fixes. This is the price of staying on 2.x and it is explicit
+  rather than silent — each entry keeps its reachability statement and its
+  2026-11-07 expiry, so it fails the build again if it outlives its reason.
 
 ## [2.0.0] - 2026-10-18
 

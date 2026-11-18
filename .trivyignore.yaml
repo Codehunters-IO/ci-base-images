@@ -16,8 +16,41 @@
 # KrakenD binary) lived here while images/ci/krakend was pinned to
 # krakend:2.13.4, and left when 2.13.11 shipped x/crypto v0.56.0.
 # CVE-2026-56864, CVE-2026-56865 (x/mod) and CVE-2026-84445 (grpc), vendored
-# into krakend 2.13.11 with no 2.x fix, left with the move to krakend:3.0.1.
+# into krakend 2.13.11 with no 2.x fix, left with the move to krakend:3.0.1 and
+# came back when that move was reverted — KrakenD CE 3.0 does not load Go
+# plugins, which is the only reason this variant exists.
 vulnerabilities:
+  # The krakend binary is copied from the official krakend:2.13.11 image and
+  # vendors these modules; 2.13.11 is the newest 2.x. 3.x carries the fixes and
+  # is not an option: CE 3.0 removed Go plugin loading, so a plugin built here
+  # would compile and never load. Drop these when a 2.13.x release vendors
+  # x/mod >= 0.40.0 and grpc >= 1.83.2.
+  - id: CVE-2026-56864
+    paths:
+      - usr/local/bin/krakend
+    statement: >-
+      x/mod sumdb integrity bypass. Reached only while downloading Go modules;
+      in this CI image the krakend binary runs `krakend check` and never
+      fetches modules. Plugin builds use the separate Go toolchain. No 2.x
+      KrakenD release vendors the fix.
+    expired_at: 2026-11-07
+  - id: CVE-2026-56865
+    paths:
+      - usr/local/bin/krakend
+    statement: >-
+      x/mod sumdb/tlog verification bypass. Same reachability as CVE-2026-56864:
+      module download code the CI use of krakend never runs. No 2.x KrakenD
+      release vendors the fix.
+    expired_at: 2026-11-07
+  - id: CVE-2026-84445
+    paths:
+      - usr/local/bin/krakend
+    statement: >-
+      gRPC-Go denial of service from malformed RPCs. Needs a listening server;
+      in this CI image krakend validates configuration and serves nothing. The
+      gateway runtime image is built elsewhere and must track this itself. No
+      2.x KrakenD release vendors grpc >= 1.83.2.
+    expired_at: 2026-11-07
   # docker-buildx-plugin from the Docker CE repository, on the two Oracle Linux
   # images. Every buildx release up to v0.38.0-rc2 still vendors go-archive
   # v0.2.0; the Alpine images ship an older buildx that does not use the
