@@ -1010,6 +1010,7 @@ only on `main` pushes.
 | Go major upgrade (forced by KrakenD runtime ABI bump)   | major |
 | Removing a pre-installed tool from any variant          | major |
 | Switching any variant's base image family               | major |
+| Undoing a major that broke a variant's purpose (e.g. 2.1.0 restoring KrakenD 2.x) | minor |
 | Adding a JDK major as a NEW variant, existing tags unchanged | minor |
 | Adding a pre-installed tool                             | minor |
 | Gradle / AWS CLI / KrakenD / Go minor/patch upgrades    | minor |
