@@ -7,6 +7,32 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [2.1.0] - 2026-11-18
+
+### Upgrading from 2.0.0
+- Nothing to move for anyone pinned to an alias. `:2` and every `:2-<variant>`
+  follow this release; `:2.0` and `:2.0.0` stop pulling once 2.0.0 is retired,
+  which happens as soon as this tag is published and signed.
+- A minor, not a major, although the KrakenD variant changes KrakenD major:
+  this undoes 2.0.0's move to 3.x, which broke the variant's one job (building
+  Go plugins) without changing a tag. Releasing it as 3.0.0 would retire every
+  `:2*` alias and break the ten variants that did not change.
+
+### Fixed
+- **The KrakenD image goes back to KrakenD 2.13.11 and Go 1.26.8.**
+  2.0.0 moved it to 3.0.1 on the premise that plugins built there would load
+  into a 3.x runtime. That premise is wrong: **KrakenD CE 3.0 removed Go plugin
+  loading entirely**, and this variant exists to build plugins. Measured
+  2026-10-18, same configuration against both binaries — `krakend:2.13.4` runs
+  its plugin loader (`[SERVICE: Plugin Loader] Starting loading process`),
+  `krakend:3.0.1` prints no loader output at all, while still accepting the
+  `plugin` and `plugin/http-server` blocks and still answering `Syntax OK!`.
+  A plugin built in the 2.0.0 image compiles and never loads, and a gateway
+  pointed at 3.0.1 boots clean serving every route unauthenticated. The
+  `check-plugin` and `test-plugin` subcommands are gone from 3.x as well.
+  2.13.11 is the newest 2.x; Go moves back with it, since `go version -m` on
+  that binary reports go1.26.8.
+
 ### Added
 - **The KrakenD smoke test now asks the binary what it can do, not what version
   it is.** Two assertions, both on the `krakend` variant and both running twice
@@ -34,20 +60,6 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   example through a JNI library that does not bundle its own, must ship that
   library itself. The `debian:12-slim` stage that supplies `libz` moves to its
   current digest.
-- **BREAKING — the KrakenD image goes back to KrakenD 2.13.11 and Go 1.26.8.**
-  2.0.0 moved it to 3.0.1 on the premise that plugins built there would load
-  into a 3.x runtime. That premise is wrong: **KrakenD CE 3.0 removed Go plugin
-  loading entirely**, and this variant exists to build plugins. Measured
-  2026-10-18, same configuration against both binaries — `krakend:2.13.4` runs
-  its plugin loader (`[SERVICE: Plugin Loader] Starting loading process`),
-  `krakend:3.0.1` prints no loader output at all, while still accepting the
-  `plugin` and `plugin/http-server` blocks and still answering `Syntax OK!`.
-  A plugin built in the 2.0.0 image compiles and never loads, and a gateway
-  pointed at 3.0.1 boots clean serving every route unauthenticated. The
-  `check-plugin` and `test-plugin` subcommands are gone from 3.x as well.
-  2.13.11 is the newest 2.x; Go moves back with it, since `go version -m` on
-  that binary reports go1.26.8. A KrakenD major is a major of this image under
-  the versioning policy, in either direction.
 - **A KrakenD major is no longer something an automated bump can propose.**
   `.github/dependabot.yml` ignores `version-update:semver-major` for `krakend`,
   for the same reason the JDK and Node majors are ignored: the major is this
