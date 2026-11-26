@@ -3,7 +3,7 @@
 # Contents: nginx (Alpine), unprivileged, SPA fallback, security headers.
 # Usage: FROM ghcr.io/codehunters-io/ci-base-images:X.Y.Z-web-runtime
 #        COPY --from=build /src/dist /usr/share/nginx/html
-FROM nginx:1.31.7-alpine@sha256:892bb2152464f0c5d8972593a5f5afaf8054552580b699d95f8ff4af08c2d33d
+FROM nginx:1.31.9-alpine@sha256:fb4658584bd9a916ffb6f6e365f97c25cfdb2923801f551ea08356e695f14ff7
 
 COPY images/runtime/web/conf/nginx.conf   /etc/nginx/nginx.conf
 COPY images/runtime/web/conf/default.conf /etc/nginx/conf.d/default.conf
